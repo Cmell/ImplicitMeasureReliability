@@ -107,7 +107,7 @@ iterFn <- function (i)
 }
 
 # set numbers ====
-n.iter <<- 2
+n.iter <<- 6
 nsubj <<- 32
 nprim <<- 4
 npcat <<- 2
@@ -131,7 +131,7 @@ rnum <<- as.factor(1:nreps)
 # 211 seconds elapsed.
 
 # Parallelize! ====
-numCores <- detectCores() - 2
+numCores <- detectCores()
 cl <- makeCluster(numCores)
 clusterExport(cl, ls())
 clusterEvalQ(cl, {
@@ -169,6 +169,6 @@ est$rxxvar <- (est$var.snpctc+(est$var.snpctn/ntarg)+(est$var.snpntc/nprim)+(est
 est$rxxvar.prand <- est$var.snpctc/(est$var.snpctc+(est$var.snpctn/ntarg)+(est$var.snpntc/nprim)+(est$var.snpntn/(nprim*ntarg))+est$var.resid/(nprim*ntarg*nreps))
 describe(est)
 
-
+save(est, file='est.RData')
 #est1 <- rbind(est1, est)
 #write.csv(est1,"rxx031_est.csv")
