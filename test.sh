@@ -2,11 +2,11 @@
 
 #SBATCH --partition shas
 #SBATCH --job-name test-job
-#SBATCH --time 00:10:00
+#SBATCH --time 00:00:10
 #SBATCH --nodes 1
 #SBATCH --qos debug
-#SBATCH --output test-job_%j.out
+#SBATCH --output test-job.out
 
 ml R
 
-Rscript rxx031a.r
+Rscript test.r

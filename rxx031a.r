@@ -131,7 +131,13 @@ rnum <<- as.factor(1:nreps)
 # 211 seconds elapsed.
 
 # Parallelize! ====
-numCores <- detectCores()
+numCoresAvail <- detectCores()
+if (numCoresAvail > n.iter) {
+  numCores <- n.iter
+} else {
+  numCores <- numCoresAvail
+}
+
 cl <- makeCluster(numCores)
 clusterExport(cl, ls())
 clusterEvalQ(cl, {

@@ -3,4 +3,4 @@ if (!require(parallel)) {
   library(parallel)
 }
 
-detectCores()
+print(detectCores())
