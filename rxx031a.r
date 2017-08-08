@@ -1,12 +1,41 @@
 # rxx03 series manipulates the variance of the prime distribution (a=0,b=1,c=2,d=3)
-# 32 subjects, 4 primes, 4 targets, 2 reps, pvar=1
 
-# libraries ====
-if(!require(devtools)) {
-  install.packages('devtools')
-  library(devtools)
-}
-install_github('Cmell/CMUtils')
+# Script Settings ====
+
+setwd('~chrismellinger/GoogleDrive/ImplicitMeasureReliability/')
+
+# For the parrallelization
+numCoresAvail <- 2
+# add this to the search path for summit computing.
+#.libPaths(c(.libPaths(), '/projects/chme2908/R_libs'))
+
+# These are only needed if generating the data in files ahead of time.
+# At present, this method is not used.
+# scratchDirLo <- './scratch/LowVarData'
+# scratchDirHi <- './scratch/HighVarData'
+
+# Simulation parameters
+n.iter <<- 2
+nsubj <<- 64
+nprim <<- 8
+npcat <<- 2
+ntarg <<- 8
+ntcat <<- 2
+nreps <<- 2 # should be even number
+
+svar <<- 1
+pvarLo <<- 1
+pvarHi <<- pvarLo * 2
+tvar <<- 1
+evar <<- 1
+
+# Random number considerations. This will make the result reproducible 
+# and also ensure that each iteration is reasonably independent.
+RNGkind("L'Ecuyer-CMRG")
+set.seed(593065038)
+
+# Libraries ====
+
 library(CMUtils)
 
 loadStuff(c(
@@ -17,14 +46,33 @@ loadStuff(c(
   'parallel'
 ))
 
-# seed
+# seed. Deprecated. This is now accomplished when creating the workers.
 # set.seed(12345)   
 
-iterFn <- function (i) 
-{
-  
+dateStr <- format(Sys.time(), format='%Y-%m-%d_%H.%M.%S')
+
+# Build functions for the job ====
+
+genData = function(
+                  nsubj,
+                  nprim,
+                  npcat,
+                  ntarg,
+                  ntcat,
+                  nreps,# should be even number
+
+                  svar,
+                  pvar,
+                  tvar,
+                  evar
+                  ) {
   # subject differences ====
-  # This is fast.
+  
+  snum <<- as.factor(1:nsubj)
+  pnum <<- as.factor(1:(npcat*nprim))
+  tnum <<- as.factor(1:(ntcat*ntarg))
+  rnum <<- as.factor(1:nreps)
+  
   prej <- rnorm(snum,0,svar)
   basert <- rnorm(snum,0,1)
   subj <- cbind(snum,prej,basert)
@@ -54,11 +102,19 @@ iterFn <- function (i)
   
   # This is fast.
   d$error <- rnorm(nrow(d),0,evar)
-  d$rt <- 600 + 1*(d$pcat*d$tcat) + 1*(d$pcat*d$tcat*d$prej) + 
-    1*(d$pcat*d$tcat*d$prej*d$tvaln) + 1*(d$pcat*d$tcat*d$prej*d$pprot) + 
-    1*(d$pcat*d$tcat*d$prej*d$pprot*d$tvaln) + 5*d$error
+  # d$rt <- 600 + 1*(d$pcat*d$tcat) + 1*(d$pcat*d$tcat*d$prej) + 
+  #   1*(d$pcat*d$tcat*d$prej*d$tvaln) + 1*(d$pcat*d$tcat*d$prej*d$pprot) + 
+  #   1*(d$pcat*d$tcat*d$prej*d$pprot*d$tvaln) + 5*d$error
   
-
+  d$rt <- 6.4 + 0.07*(d$prej) + 0.00*(d$pcat) + 0.02*(d$tcat) + 0.02*(d$pprot) + 
+    0.02*(d$tvaln) + 0.00*(d$prej*d$pcat) + 0.00*(d$prej*d$tcat) + 
+    0.04*(d$pcat*d$tcat) + 0.04*(d$prej*d$pprot) + 0.02*(d$pprot*d$tcat) + 
+    0.00*(d$prej*d$tvaln) + 0.00*(d$pcat*d$tvaln) + 0.00*(d$pprot*d$tvaln) + 
+    0.08*(d$prej*d$pcat*d$tcat) + 0.00*(d$prej*d$pcat*d$tcat*d$tvaln) + 
+    0.06*(d$prej*d$pcat*d$tcat*d$pprot) +
+    0.05*(d$pcat*d$tcat*d$prej*d$pprot*d$tvaln) + 0.25*d$error
+  
+  
   # variance decomposition ====
   d$snum <- as.factor(d$snum)
   d$pcat <- as.factor(d$pcat)
@@ -66,14 +122,24 @@ iterFn <- function (i)
   d$tcat <- as.factor(d$tcat)
   d$tnum <- as.factor(d$tnum)
   
-  contrasts(d$snum) <- contr.poly
-  contrasts(d$pcat) <- contr.poly
-  contrasts(d$pnum) <- contr.poly
-  contrasts(d$tcat) <- contr.poly
-  contrasts(d$tnum) <- contr.poly
+  # Why are pcat & tcat factors? Looks like they are randomly generated.
+  
+  # contrasts(d$snum) <- contr.poly
+  # contrasts(d$pcat) <- contr.poly
+  # contrasts(d$pnum) <- contr.poly
+  # contrasts(d$tcat) <- contr.poly
+  # contrasts(d$tnum) <- contr.poly
+  
+  return(d)
+}
+
+modelFn <- function (d) 
+{
+  initTime <- proc.time()
 
   # This step is worth about 46 seconds.
-  m1 <- lm(rt ~ snum * pcat * tcat + snum * pnum * tcat + snum * pcat * tnum + 
+  m1 <- lm(rt ~ snum * pcat * tcat + snum * pnum * tcat + 
+             snum * pcat * tnum + 
              snum * pnum * tnum, data=d)
   
   # This step is worth about 63 seconds
@@ -103,78 +169,209 @@ iterFn <- function (i)
   # Build the return vector
   est['r_pf'] <- cor(d1$rnum1,d1$rnum2)
   
+  endTime <- proc.time()
+  runTime <- initTime - endTime
+  
+  print(runTime)
   return(est)
 }
 
-# set numbers ====
-n.iter <<- 6
-nsubj <<- 32
-nprim <<- 4
-npcat <<- 2
-ntarg <<- 4
-ntcat <<- 2
-nreps <<- 2 # should be even number
+finishCalcs <- function (est) {
+  est$var.snpctc <- 
+    (est$ms.snpctc - est$ms.snpctn - est$ms.snpntc + est$ms.snpntn) / 
+    (nprim*ntarg*nreps)
+  est$var.snpctn <- (est$ms.snpctn - est$ms.snpntn) / (nprim*nreps)
+  est$var.snpntc <- (est$ms.snpntc - est$ms.snpntn) / (ntarg*nreps)
+  est$var.snpntn <- (est$ms.snpntn - est$ms.resid) / (nreps)
+  est$var.resid <- est$ms.resid
+  
+  # recode negative variances to zero (this will bias the estimates but is 
+  # necessary to avoid negative reliabilities)
+  est$var.snpctc[est$var.snpctc<0] <- 0
+  est$var.snpctn[est$var.snpctn<0] <- 0
+  est$var.snpntc[est$var.snpntc<0] <- 0
+  est$var.snpntn[est$var.snpntn<0] <- 0
+  
+  est$rxxmse <- (est$ms.snpctc-est$ms.resid) / est$ms.snpctc
+  
+  est$rxxvar <- 
+    (est$var.snpctc + (est$var.snpctn / ntarg) + (est$var.snpntc/ nprim) + 
+       (est$var.snpntn / (nprim*ntarg))
+    ) / 
+    (est$var.snpctc + (est$var.snpctn / ntarg) + (est$var.snpntc / nprim) + 
+       (est$var.snpntn / (nprim*ntarg)) + est$var.resid / (nprim*ntarg*nreps)
+    )
+  
+  est$rxxvar.prand <- 
+    est$var.snpctc / 
+    (est$var.snpctc + (est$var.snpctn / ntarg) + (est$var.snpntc / nprim) + 
+       (est$var.snpntn / (nprim*ntarg)) + est$var.resid / (nprim*ntarg*nreps)
+    )
+  return(est)
+}
 
-svar <<- 1
-pvar <<- 1
-tvar <<- 1
-evar <<- 1
+renameEstCols <- function (est) {
+  colnames(est) <- c(
+    "ms.int","ms.sn","ms.pc","ms.tc","ms.pn","ms.tn","ms.snpc","ms.sntc",
+    "ms.pctc","ms.snpn","ms.tcpn","ms.sntn","ms.pctn","ms.pntn","ms.snpctc",
+    "ms.snpntc","ms.snpctn","ms.snpntn","ms.resid","r_sh","r_pf"
+    )
+  return(est)
+}
 
-snum <<- as.factor(1:nsubj)
-pnum <<- as.factor(1:(npcat*nprim))
-tnum <<- as.factor(1:(ntcat*ntarg))
-rnum <<- as.factor(1:nreps)
+# Generate Data ====
 
+# generate each data file and store it in scratch.
+# Deprecated. Not used now.
 
-# Simple function call ====
-#system.time(estLst <- lapply(1:n.iter, iterFn))
-# 211 seconds elapsed.
+# if (!dir.exists(scratchDirLo)) {dir.create(scratchDirLo, recursive = T)}
+# if (!dir.exists(scratchDirHi)) {dir.create(scratchDirHi, recursive = T)}
+# 
+# # clear all files in the scratch directories.
+# file.remove(list.files(scratchDirHi, full.names = T))
+# file.remove(list.files(scratchDirLo, full.names = T))
+# 
+# system.time({
+#   for (i in 1:n.iter) {
+#     flNameLo <- paste0(scratchDirLo, '/dataset', i, '.RData')
+#     flNameHi <- paste0(scratchDirHi, '/dataset', i, '.RData')
+#     
+#     d <- genData(
+#       nsubj = nsubj,
+#       nprim = nprim,
+#       npcat = npcat,
+#       ntarg = ntarg,
+#       ntcat = ntcat,
+#       nreps = nreps, # should be even number
+#       
+#       svar = svar,
+#       pvar = pvar,
+#       tvar = tvar,
+#       evar = evar
+#     )
+#     save(d, file=flNameLo)
+#     
+#     d <- genData(
+#       nsubj = nsubj,
+#       nprim = nprim,
+#       npcat = npcat,
+#       ntarg = ntarg,
+#       ntcat = ntcat,
+#       nreps = nreps, # should be even number
+#       
+#       svar = svar,
+#       pvar = pvar * 2, # Critical change!
+#       tvar = tvar,
+#       evar = evar
+#     )
+#     save(d, file=flNameHi)
+#   }
+# })
+# 
+# 
+# # clean up
+# rm(tempD, flNameLo, flNameHi, scratchDirLo, scratchDirHi)
 
-# Parallelize! ====
-numCoresAvail <- detectCores()
+# Parallelize! the modeling part... ====
 if (numCoresAvail > n.iter) {
   numCores <- n.iter
 } else {
   numCores <- numCoresAvail
 }
 
-cl <- makeCluster(numCores)
+cl <- makeCluster(numCores, outfile=paste0(dateStr, '.out'))
 clusterExport(cl, ls())
 clusterEvalQ(cl, {
+  #.libPaths(c(.libPaths(), '/projects/chme2908/R_libs'))
   library(car)
   library(reshape)
   library(psych)
 })
+
+mc.reset.stream()
+
+# This one does the low variance simulation.
 system.time({
-  estLst <- parLapply(cl, 1:n.iter, iterFn)
+  estLstLo <- mclapply(1:n.iter, 
+                     function (i) {
+                       d <- genData(
+                         nsubj = nsubj,
+                         nprim = nprim,
+                         npcat = npcat,
+                         ntarg = ntarg,
+                         ntcat = ntcat,
+                         nreps = nreps, # should be even number
+
+                         svar = svar,
+                         pvar = pvarLo, # Basline variance.
+                         tvar = tvar,
+                         evar = evar
+                       )
+                       return(modelFn(d))
+                     }
+  )
+})
+
+# This one does the high variance simulation.
+system.time({
+  estLstHi <- mclapply(1:n.iter, 
+                     function (i) {
+                       d <- genData(
+                         nsubj = nsubj,
+                         nprim = nprim,
+                         npcat = npcat,
+                         ntarg = ntarg,
+                         ntcat = ntcat,
+                         nreps = nreps, # should be even number
+                         
+                         svar = svar,
+                         pvar = pvarHi, # High variance!
+                         tvar = tvar,
+                         evar = evar
+                       )
+                       return(modelFn(d))
+                     }
+  )
 })
 stopCluster(cl)
-# Nice! 109 seconds elapsed. Basically half the time, which is what should happen.
 
-# Later math ====
+# Make the est dataframe. ====
 
-# Make the est dataframe.
-est <- data.frame(Reduce(rbind, estLst))
+estLo <- data.frame(Reduce(rbind, estLstLo))
+estHi <- data.frame(Reduce(rbind, estLstHi))
 
-colnames(est) <- c("ms.int","ms.sn","ms.pc","ms.tc","ms.pn","ms.tn","ms.snpc","ms.sntc","ms.pctc","ms.snpn","ms.tcpn","ms.sntn","ms.pctn","ms.pntn","ms.snpctc","ms.snpntc","ms.snpctn","ms.snpntn","ms.resid","r_sh","r_pf")
+estLo <- renameEstCols(estLo)
+estHi <- renameEstCols(estHi)
 
-est$var.snpctc <- (est$ms.snpctc - est$ms.snpctn - est$ms.snpntc + est$ms.snpntn)/(nprim*ntarg*nreps)
-est$var.snpctn <- (est$ms.snpctn - est$ms.snpntn)/(nprim*nreps)
-est$var.snpntc <- (est$ms.snpntc - est$ms.snpntn)/(ntarg*nreps)
-est$var.snpntn <- (est$ms.snpntn - est$ms.resid)/(nreps)
-est$var.resid <- est$ms.resid
+# Perform calculations. ====
 
-# recode negative variances to zero (this will bias the estimates but is necessary to avoid negative reliabilities)
-est$var.snpctc[est$var.snpctc<0] <- 0
-est$var.snpctn[est$var.snpctn<0] <- 0
-est$var.snpntc[est$var.snpntc<0] <- 0
-est$var.snpntn[est$var.snpntn<0] <- 0
+estHi <- finishCalcs(estHi)
+estLo <- finishCalcs(estLo)
 
-est$rxxmse <- (est$ms.snpctc-est$ms.resid)/est$ms.snpctc
-est$rxxvar <- (est$var.snpctc+(est$var.snpctn/ntarg)+(est$var.snpntc/nprim)+(est$var.snpntn/(nprim*ntarg)))/(est$var.snpctc+(est$var.snpctn/ntarg)+(est$var.snpntc/nprim)+(est$var.snpntn/(nprim*ntarg))+est$var.resid/(nprim*ntarg*nreps))
-est$rxxvar.prand <- est$var.snpctc/(est$var.snpctc+(est$var.snpctn/ntarg)+(est$var.snpntc/nprim)+(est$var.snpntn/(nprim*ntarg))+est$var.resid/(nprim*ntarg*nreps))
-describe(est)
+# Save all the things. ====
 
-save(est, file='est.RData')
-#est1 <- rbind(est1, est)
+print(paste('Run at', dateStr))
+
+# Create a log file that has a name following the convention of the data file.
+logDf <- data.frame(
+  n.iter = n.iter,
+  nsubj = nsubj,
+  nprim = nprim,
+  npcat = npcat,
+  ntarg = ntarg,
+  ntcat = ntcat,
+  nreps = nreps,
+  
+  svar = svar,
+  pvarLo = pvarLo,
+  pvarHi = pvarHi,
+  tvar = tvar,
+  evar = evar
+)
+write.table(logDf,file=paste0('log_',dateStr,'.txt'), sep=',')
+
+save(estLo, estHi,
+     file=paste0('est_', dateStr,'.RData')
+     )
+
 #write.csv(est1,"rxx031_est.csv")

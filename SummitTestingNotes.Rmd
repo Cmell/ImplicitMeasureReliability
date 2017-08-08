@@ -1,0 +1,62 @@
+---
+title: "Summit Computing Testing Notes"
+author: "Chris Mellinger"
+date: "6/23/2017"
+output: pdf_document
+---
+
+# Testing on My Machine.
+
+On my computer, I was able to run 2 iterations at about 210 seconds. Parallelized, this reduced to about 105 seconds.
+
+With 3 iterations (and after clearing all variables and restarting R), time was 122.287 using 3 cores. With 6 iterations, time was 212.75 seconds with 6 cores.
+
+# RC Testing
+
+On the first successful run, 6 iterations took 567.459 seconds, or 9.45 minutes.
+
+On run 2, I specified the correct number of tasks per node to avoid memory problems (24), and then I tried for 50 iterations. It took about 9.5 minutes again, which tells me I was probably doing something wrong before. But that is pretty cool. I am seeing about 4.1 minute averages, so I should maybe figure 5 minutes per iteration.
+
+For the next run, I want to try something bigger, like 500. I need $500 corejobs * 5 minutes/job / 24 cores = 104.2 minutes$. So I need an hour and 45 total. **After run notes.** For some reason, the iterations started slowing down somewhat quickly. Looks like I will need to count on about 350 - 400 seconds per iteration to be safe. Durn.
+
+
+
+# Notes on Getting Things to Work
+
+I installed packages from an scompile node:
+
+```
+ssh scompile
+ml R
+export R_LIBS = '/projects/chme2908/R_libs' # set environment variable for R libs
+R
+```
+
+Then in R:
+
+```{r, eval=F}
+inst <- function(pkg) {install.packages(pkg, repos='http://cran.r-project.org')}
+inst(pkg1)
+# let it run
+inst(pkg2)
+# let it run
+```
+
+Then, there should be packages in that R-libs directory.
+
+To actually make scripts find those packages, add this line:
+```{r}
+.libPaths(c(.libPaths(), '/projects/chme2908/R_libs'))
+```
+
+It has to go anywhere packages need to be loaded: the beginning of the script, and on any clusters intiated as well.
+
+I never got devtools to work in a script, but I could use it on the scompile node.
+
+# Timing Info
+
+On August 8, 2017 I ran 500 iterations with 32 participants and 2 replications. Logged in `big-job_219448.out`, the modeling part took `r 6202.6 / (60^2)` hours.
+
+A test job with 6 iterations, running on 6 cores, 32 ps and 2 reps took 122 seconds.
+
+Generating data for 500 iterations of a larger simulation (64 participants, 8 primes, 8 targets, and 2 of each category) too 9.5593 minutes (573.563s) to accomplish. Extrapolating, 10000 data sets will take `r 573.563 / 500 * 10000 / 60` minutes. This might be infeasible. I think I will pry have to implement the randomness within the parallelized workers.
