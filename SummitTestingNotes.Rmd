@@ -60,3 +60,11 @@ On August 8, 2017 I ran 500 iterations with 32 participants and 2 replications. 
 A test job with 6 iterations, running on 6 cores, 32 ps and 2 reps took 122 seconds.
 
 Generating data for 500 iterations of a larger simulation (64 participants, 8 primes, 8 targets, and 2 of each category) too 9.5593 minutes (573.563s) to accomplish. Extrapolating, 10000 data sets will take `r 573.563 / 500 * 10000 / 60` minutes. This might be infeasible. I think I will pry have to implement the randomness within the parallelized workers.
+
+Trying estimate the task is also proving difficult. For the record, 32 ps with 4 primes and targets is worth 95.72 seconds. It took 290 seconds to estimate 1 iteration of 32 participants, 8 targets, and 4 primes. Estimating the model with 32 ps, 8 and 8, 6963.1 seconds, which is almost 2 hours. Estimating 64 ps with 4 primes and targets took 734 seconds, ~ 12 minutes.
+
+# Timing Info on Summit
+
+Running 12 jobs on 12 cores (1 node), I am averaging about 175 seconds per iteration. Turned out to be 674 seconds for the low variance and 838 seconds for the high variance. This is with 32 ps, 4 primes and 4 targets. Total runtime: 00:06:02.
+
+Running 2 jobs on 2 cores (1 node), with 32 ps and 8 primes and targets, each model seems to take around 5000 seconds. That is ~83 minutes. To piggy-back on this, it took 2:45:26 to run both versions of 2 iterations.

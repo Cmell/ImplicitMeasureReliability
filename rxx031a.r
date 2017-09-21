@@ -1,25 +1,61 @@
 # rxx03 series manipulates the variance of the prime distribution (a=0,b=1,c=2,d=3)
 
-# Script Settings ====
+# Libraries ====
 
-setwd('~chrismellinger/GoogleDrive/ImplicitMeasureReliability/')
-
-# For the parrallelization
-numCoresAvail <- 2
 # add this to the search path for summit computing.
 #.libPaths(c(.libPaths(), '/projects/chme2908/R_libs'))
+
+library(CMUtils)
+
+loadStuff(c(
+  'car',
+  #'psych',
+  'reshape',
+  #'gtheory',
+  'parallel'
+  #'pryr'
+))
+
+# Working Directory ====
+setwd('~chrismellinger/GoogleDrive/ImplicitMeasureReliability/')
+# setwd('/home/chme2908/ImplicitMeasureReliability/')
+
+# Get arguments ====
+library(optparse)
+
+opts = 
+  optionList = list(
+    make_option(c("--nprim"), type="integer", help="number of primes"),
+    make_option(c("--n.iter"), type="integer", help="number of iterations"),
+    make_option(c("--ncores"), type="integer", help="number of cores to use"),
+    make_option(c("--ntarg"), type="integer", help="number of targets"),
+    make_option(c("--nsubj"), type="integer", help="number of subjects")
+  )
+optParser = OptionParser(option_list = optionList)
+args = parse_args(optParser)
+
+# Check the one required argument
+if (is.null(args$n.iter)) {
+  stop(
+    paste("Must specify n.iter!")
+  )
+}
+n.iter <- args$n.iter
+# Default simulation parameters ====
+
+# For the parrallelization
+ncores <<- 2 * n.iter - 1 # This should be one less than is actually 
+# available. Reserve one core for the main process.
 
 # These are only needed if generating the data in files ahead of time.
 # At present, this method is not used.
 # scratchDirLo <- './scratch/LowVarData'
 # scratchDirHi <- './scratch/HighVarData'
 
-# Simulation parameters
-n.iter <<- 2
-nsubj <<- 64
-nprim <<- 8
+nsubj <<- 32
+nprim <<- 4
 npcat <<- 2
-ntarg <<- 8
+ntarg <<- 4
 ntcat <<- 2
 nreps <<- 2 # should be even number
 
@@ -29,27 +65,48 @@ pvarHi <<- pvarLo * 2
 tvar <<- 1
 evar <<- 1
 
+# Substitute Provided Arguments for Default Values ====
+
+# Overwrite the defaults when they are provided.
+for (var in names(args)) {
+  assign(var, args[var][[1]])
+}
+
+# Print Important Parameters for the Logs ====
+varLst <- c(
+  "ncores",
+  "n.iter",
+  "nsubj",
+  "nprim",
+  "npcat",
+  "ntarg",
+  "ntcat",
+  "nreps",
+  "svar",
+  "pvarLo",
+  "pvarHi",
+  "tvar",
+  "evar"
+)
+for (var in varLst) {
+  print(paste0(var, ": ", get(var)))
+}
+
+# Random Seed ====
+
 # Random number considerations. This will make the result reproducible 
 # and also ensure that each iteration is reasonably independent.
 RNGkind("L'Ecuyer-CMRG")
 set.seed(593065038)
 
-# Libraries ====
-
-library(CMUtils)
-
-loadStuff(c(
-  'car',
-  'psych',
-  'reshape',
-  'gtheory',
-  'parallel'
-))
-
 # seed. Deprecated. This is now accomplished when creating the workers.
 # set.seed(12345)   
 
+# Date String ====
+
 dateStr <- format(Sys.time(), format='%Y-%m-%d_%H.%M.%S')
+startTime <<- proc.time()["elapsed"]
+# profileFl <- paste0(dateStr, '_profile.txt')
 
 # Build functions for the job ====
 
@@ -93,14 +150,12 @@ genData = function(
   
   
   # build integrated data file ====
-  # This is nontrivially slower, but still pretty fast.
   d <- expand.grid(rnum=rnum,tnum=tnum,pnum=pnum,snum=snum)
   d <- merge(d,target,by.x="tnum",by.y="tnum")
   d <- merge(d,prime,by.x="pnum",by.y="pnum")
   d <- merge(d,subj,by.x="snum",by.y="snum")
   
   
-  # This is fast.
   d$error <- rnorm(nrow(d),0,evar)
   # d$rt <- 600 + 1*(d$pcat*d$tcat) + 1*(d$pcat*d$tcat*d$prej) + 
   #   1*(d$pcat*d$tcat*d$prej*d$tvaln) + 1*(d$pcat*d$tcat*d$prej*d$pprot) + 
@@ -133,21 +188,18 @@ genData = function(
   return(d)
 }
 
-modelFn <- function (d) 
+modelFn <- function (d, i=-1) 
 {
-  initTime <- proc.time()
-
-  # This step is worth about 46 seconds.
   m1 <- lm(rt ~ snum * pcat * tcat + snum * pnum * tcat + 
              snum * pcat * tnum + 
              snum * pnum * tnum, data=d)
+  print(paste0('Iteration ', i, ' lm() call finished.'))
   
-  # This step is worth about 63 seconds
   my.anova1 <- Anova(m1, type="III", singular.ok = TRUE)
+  print(paste0('Iteration ', i, ' Anova() call finished.'))
   numPar <- nrow(my.anova1)
-  est <- my.anova1[1:numPar,'Sum Sq']/my.anova1[1:numPar,'Df']
+  est <- my.anova1[1:numPar,'Sum Sq'] / my.anova1[1:numPar,'Df']
   names(est) <- rownames(my.anova1)
-  
   
   # split-half reliability
 
@@ -159,7 +211,8 @@ modelFn <- function (d)
   d1$half2 <- (d1[,6] - d1[,7]) - (d1[,8] - d1[,9])
   est['r_sh'] <- cor(d1$half1,d1$half2)
 
-  # parallel forms reliability, must recode replications to only 2 values (odd and even)
+  # parallel forms reliability, must recode replications to only 
+  # 2 values (odd and even)
   d$rnumx <- as.numeric(d$rnum) %% 2
   d$rnumx[d$rnumx==0] <- 2
   d1 <- cast(d, snum ~ rnumx + pcat + tcat, mean, value="rt")
@@ -169,10 +222,7 @@ modelFn <- function (d)
   # Build the return vector
   est['r_pf'] <- cor(d1$rnum1,d1$rnum2)
   
-  endTime <- proc.time()
-  runTime <- initTime - endTime
-  
-  print(runTime)
+  rm(modForm, m1, my.anova1, numPar, d, d1)
   return(est)
 }
 
@@ -214,164 +264,114 @@ renameEstCols <- function (est) {
   colnames(est) <- c(
     "ms.int","ms.sn","ms.pc","ms.tc","ms.pn","ms.tn","ms.snpc","ms.sntc",
     "ms.pctc","ms.snpn","ms.tcpn","ms.sntn","ms.pctn","ms.pntn","ms.snpctc",
-    "ms.snpntc","ms.snpctn","ms.snpntn","ms.resid","r_sh","r_pf"
+    "ms.snpntc","ms.snpctn","ms.snpntn","ms.resid","r_sh","r_pf", "var"
     )
   return(est)
 }
 
-# Generate Data ====
-
-# generate each data file and store it in scratch.
-# Deprecated. Not used now.
-
-# if (!dir.exists(scratchDirLo)) {dir.create(scratchDirLo, recursive = T)}
-# if (!dir.exists(scratchDirHi)) {dir.create(scratchDirHi, recursive = T)}
-# 
-# # clear all files in the scratch directories.
-# file.remove(list.files(scratchDirHi, full.names = T))
-# file.remove(list.files(scratchDirLo, full.names = T))
-# 
-# system.time({
-#   for (i in 1:n.iter) {
-#     flNameLo <- paste0(scratchDirLo, '/dataset', i, '.RData')
-#     flNameHi <- paste0(scratchDirHi, '/dataset', i, '.RData')
-#     
-#     d <- genData(
-#       nsubj = nsubj,
-#       nprim = nprim,
-#       npcat = npcat,
-#       ntarg = ntarg,
-#       ntcat = ntcat,
-#       nreps = nreps, # should be even number
-#       
-#       svar = svar,
-#       pvar = pvar,
-#       tvar = tvar,
-#       evar = evar
-#     )
-#     save(d, file=flNameLo)
-#     
-#     d <- genData(
-#       nsubj = nsubj,
-#       nprim = nprim,
-#       npcat = npcat,
-#       ntarg = ntarg,
-#       ntcat = ntcat,
-#       nreps = nreps, # should be even number
-#       
-#       svar = svar,
-#       pvar = pvar * 2, # Critical change!
-#       tvar = tvar,
-#       evar = evar
-#     )
-#     save(d, file=flNameHi)
-#   }
-# })
-# 
-# 
-# # clean up
-# rm(tempD, flNameLo, flNameHi, scratchDirLo, scratchDirHi)
-
-# Parallelize! the modeling part... ====
-if (numCoresAvail > n.iter) {
-  numCores <- n.iter
-} else {
-  numCores <- numCoresAvail
+iterFn <- function (i, curPvar) {
+  print(paste('Beginning iteration', i, sep=" "))
+  
+  initTm <- proc.time()[3]
+  d <- genData(
+    nsubj = nsubj,
+    nprim = nprim,
+    npcat = npcat,
+    ntarg = ntarg,
+    ntcat = ntcat,
+    nreps = nreps, # should be even number
+    
+    svar = svar,
+    pvar = curPvar,
+    tvar = tvar,
+    evar = evar
+  )
+  tm <- proc.time()[3] - initTm
+  print(paste0('Iteration ', i, ' data gen time: ', tm))
+  
+  initTm <- proc.time()[3]
+  curEst <- modelFn(d, i=i)
+  tm <- proc.time()[3] - initTm
+  #print(paste0('Iteration ', i, ' model time: ', tm))
+  
+  rm(d, initTm, tm); gc();
+  return(curEst)
 }
 
-cl <- makeCluster(numCores, outfile=paste0(dateStr, '.out'))
-clusterExport(cl, ls())
-clusterEvalQ(cl, {
-  #.libPaths(c(.libPaths(), '/projects/chme2908/R_libs'))
-  library(car)
-  library(reshape)
-  library(psych)
-})
+ 
+# # Parallelize! the modeling part... ====
 
 mc.reset.stream()
 
 # This one does the low variance simulation.
+# Rprof(profileFl)
 system.time({
-  estLstLo <- mclapply(1:n.iter, 
+  estLst <- mclapply(1:(2 * n.iter), 
                      function (i) {
-                       d <- genData(
-                         nsubj = nsubj,
-                         nprim = nprim,
-                         npcat = npcat,
-                         ntarg = ntarg,
-                         ntcat = ntcat,
-                         nreps = nreps, # should be even number
-
-                         svar = svar,
-                         pvar = pvarLo, # Basline variance.
-                         tvar = tvar,
-                         evar = evar
-                       )
-                       return(modelFn(d))
-                     }
+                       # If i is even, do the low ones, if it is odd, the high
+                       if (i %% 2 == 0) {
+                         return(
+                           c(iterFn(i, curPvar=pvarLo), var=pvarLo)
+                         )
+                       } else {
+                         return(
+                           c(iterFn(i, curPvar=pvarHi), var=pvarHi)
+                         )
+                       }
+                     },
+                     mc.cores = ncores
   )
 })
-
-# This one does the high variance simulation.
-system.time({
-  estLstHi <- mclapply(1:n.iter, 
-                     function (i) {
-                       d <- genData(
-                         nsubj = nsubj,
-                         nprim = nprim,
-                         npcat = npcat,
-                         ntarg = ntarg,
-                         ntcat = ntcat,
-                         nreps = nreps, # should be even number
-                         
-                         svar = svar,
-                         pvar = pvarHi, # High variance!
-                         tvar = tvar,
-                         evar = evar
-                       )
-                       return(modelFn(d))
-                     }
-  )
-})
-stopCluster(cl)
+# Rprof(NULL)
+# summaryRprof(profileFl)
 
 # Make the est dataframe. ====
 
-estLo <- data.frame(Reduce(rbind, estLstLo))
-estHi <- data.frame(Reduce(rbind, estLstHi))
+est <- data.frame(Reduce(rbind, estLst))
 
-estLo <- renameEstCols(estLo)
-estHi <- renameEstCols(estHi)
+est <- renameEstCols(est)
 
 # Perform calculations. ====
 
-estHi <- finishCalcs(estHi)
-estLo <- finishCalcs(estLo)
+est <- finishCalcs(est)
 
 # Save all the things. ====
 
 print(paste('Run at', dateStr))
 
-# Create a log file that has a name following the convention of the data file.
-logDf <- data.frame(
-  n.iter = n.iter,
-  nsubj = nsubj,
-  nprim = nprim,
-  npcat = npcat,
-  ntarg = ntarg,
-  ntcat = ntcat,
-  nreps = nreps,
-  
-  svar = svar,
-  pvarLo = pvarLo,
-  pvarHi = pvarHi,
-  tvar = tvar,
-  evar = evar
-)
-write.table(logDf,file=paste0('log_',dateStr,'.txt'), sep=',')
-
-save(estLo, estHi,
+save(est,
      file=paste0('est_', dateStr,'.RData')
      )
 
-#write.csv(est1,"rxx031_est.csv")
+# Testing ====
+
+# d <- genData(
+#   nsubj = nsubj,
+#   nprim = nprim,
+#   npcat = npcat,
+#   ntarg = ntarg,
+#   ntcat = ntcat,
+#   nreps = nreps, # should be even number
+#   
+#   svar = svar,
+#   pvar = 1,
+#   tvar = tvar,
+#   evar = evar
+# )
+
+# Using clusters - deprecated ====
+
+# if (ncores > n.iter) {
+#   numCores <- n.iter
+# } else {
+#   numCores <- ncores
+# }
+
+# cl <- makeCluster(numCores, outfile=paste0(dateStr, '.out'))
+# clusterExport(cl, ls())
+# clusterEvalQ(cl, {
+#   #.libPaths(c(.libPaths(), '/projects/chme2908/R_libs'))
+#   library(car)
+#   library(reshape)
+#   library(psych)
+# })
