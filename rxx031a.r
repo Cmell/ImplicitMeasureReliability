@@ -52,7 +52,7 @@ ncores <<- 2 * n.iter - 1 # This should be one less than is actually
 # scratchDirLo <- './scratch/LowVarData'
 # scratchDirHi <- './scratch/HighVarData'
 
-nsubj <<- 32
+nsubj <<- 20
 nprim <<- 4
 npcat <<- 2
 ntarg <<- 4
@@ -105,6 +105,7 @@ set.seed(593065038)
 # Date String ====
 
 dateStr <- format(Sys.time(), format='%Y-%m-%d_%H.%M.%S')
+print(paste('Run start time:', format(Sys.time(), format='%Y-%m-%d_%H:%M:%S')))
 startTime <<- proc.time()["elapsed"]
 # profileFl <- paste0(dateStr, '_profile.txt')
 
@@ -190,13 +191,17 @@ genData = function(
 
 modelFn <- function (d, i=-1) 
 {
+  initTime <- proc.time()[3]
   m1 <- lm(rt ~ snum * pcat * tcat + snum * pnum * tcat + 
              snum * pcat * tnum + 
              snum * pnum * tnum, data=d)
-  print(paste0('Iteration ', i, ' lm() call finished.'))
+  tm <- round((proc.time()[3] - initTime) / 60, 2)
+  print(paste0('Iteration ', i, ' lm() call finished: ', tm, ' minutes'))
   
+  initTime <- proc.time()[3]
   my.anova1 <- Anova(m1, type="III", singular.ok = TRUE)
-  print(paste0('Iteration ', i, ' Anova() call finished.'))
+  tm <- round((proc.time()[3] - initTime) / 60, 2)
+  print(paste0('Iteration ', i, ' Anova() call finished: ', tm, ' minutes'))
   numPar <- nrow(my.anova1)
   est <- my.anova1[1:numPar,'Sum Sq'] / my.anova1[1:numPar,'Df']
   names(est) <- rownames(my.anova1)
@@ -289,7 +294,7 @@ iterFn <- function (i, curPvar) {
   tm <- proc.time()[3] - initTm
   print(paste0('Iteration ', i, ' data gen time: ', tm))
   
-  initTm <- proc.time()[3]
+  #initTm <- proc.time()[3]
   curEst <- modelFn(d, i=i)
   tm <- proc.time()[3] - initTm
   #print(paste0('Iteration ', i, ' model time: ', tm))
