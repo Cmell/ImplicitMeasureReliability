@@ -68,3 +68,12 @@ Trying estimate the task is also proving difficult. For the record, 32 ps with 4
 Running 12 jobs on 12 cores (1 node), I am averaging about 175 seconds per iteration. Turned out to be 674 seconds for the low variance and 838 seconds for the high variance. This is with 32 ps, 4 primes and 4 targets. Total runtime: 00:06:02.
 
 Running 2 jobs on 2 cores (1 node), with 32 ps and 8 primes and targets, each model seems to take around 5000 seconds. That is ~83 minutes. To piggy-back on this, it took 2:45:26 to run both versions of 2 iterations.
+
+## 8 primes, 8 targets, 20 subjects, fully paralellized, estimating the number of iterations for both high and low variance:
+
+6 iterations (12 cores): 4125s, 69min, 1hr
+12 iterations (24 cores): 3760s, 63min, 1hr
+12 iterations (24 cores): 3826s, 64min, 1hr
+18 iterations (36 cores): 6039s, 100.65min, 1.67hr
+24 iterations (48 cores): 8480s, 141min, 2.4hrs
+36 iterations (72 cores): 13699s, 228min 3.8hrs
