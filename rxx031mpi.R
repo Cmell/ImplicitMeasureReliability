@@ -92,7 +92,7 @@ varLst <- c(
   "evar"
 )
 for (var in varLst) {
-  print(paste0(var, ": ", get(var)))
+  comm.print(paste0(var, ": ", get(var)))
 }
 
 # Random Seed ====
@@ -108,7 +108,7 @@ comm.set.seed(593065038)
 # Date String ====
 
 dateStr <- format(Sys.time(), format='%Y-%m-%d_%H.%M.%S')
-print(paste('Run start time:', format(Sys.time(), format='%Y-%m-%d_%H:%M:%S')))
+comm.print(paste('Run start time:', format(Sys.time(), format='%Y-%m-%d_%H:%M:%S')))
 startTime <<- proc.time()["elapsed"]
 # profileFl <- paste0(dateStr, '_profile.txt')
 
@@ -300,7 +300,7 @@ iterFn <- function (i, curPvar) {
   #initTm <- proc.time()[3]
   curEst <- modelFn(d, i=i)
   tm <- proc.time()[3] - initTm
-  #print(paste0('Iteration ', i, ' model time: ', tm))
+  #comm.print(paste0('Iteration ', i, ' model time: ', tm))
   
   rm(d, initTm, tm); gc();
   return(curEst)
