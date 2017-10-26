@@ -55,10 +55,10 @@ ncores <<- 2 * n.iter - 1 # This should be one less than is actually
 # scratchDirLo <- './scratch/LowVarData'
 # scratchDirHi <- './scratch/HighVarData'
 
-nsubj <<- 20
-nprim <<- 4
+nsubj <<- 15
+nprim <<- 2
 npcat <<- 2
-ntarg <<- 4
+ntarg <<- 2
 ntcat <<- 2
 nreps <<- 2 # should be even number
 
@@ -314,7 +314,7 @@ init()
 time.proc <- system.time({
   id <- get.jid(2 * n.iter)
   comm.print(id)
-  estLst <- unlist(lapply(id, 
+  estLst <- lapply(id, 
                      function (i) {
                        # If i is even, do the low ones, if it is odd, the high
                        if (i %% 2 == 0) {
@@ -327,15 +327,21 @@ time.proc <- system.time({
                          )
                        }
                      }
-  ))
-  estLst <- allgather(estLst)
+  )
+  estLst <- unlist(allgather(estLst), recursive=F)
 })
 comm.print(time.proc)
-finalize()
+
 
 # Make the est dataframe. ====
+comm.print(estLst)
+nms <- names(estLst[[1]])
 
-est <- data.frame(Reduce(rbind, estLst))
+bindRows <- function (r1, r2) {
+  return(rbind(r1, r2[nms]))
+}
+
+est <- data.frame(Reduce(bindRows, estLst))
 
 est <- renameEstCols(est)
 
@@ -351,6 +357,7 @@ save(est,
      file=paste0('est_', dateStr,'.RData')
      )
 
+finalize()
 # Testing ====
 
 # d <- genData(
