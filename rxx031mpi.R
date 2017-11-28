@@ -31,8 +31,9 @@ opts =
     make_option(c("--ncores"), type="integer", help="number of cores to use"),
     make_option(c("--ntarg"), type="integer", help="number of targets"),
     make_option(c("--nsubj"), type="integer", help="number of subjects"),
-    make_option(c("--pvarHi"), type="integer", help="variance of primes in 'high' condition"),
-    make_option(c("--pvarLo"), type="integer", help="variance of primes in 'low' condition")
+    #make_option(c("--pvarHi"), type="integer", help="variance of primes in 'high' condition"),
+    #make_option(c("--pvarLo"), type="integer", help="variance of primes in 'low' condition")
+    make_option(c("--varianceLst"), type="character", help="comma separated values")
   )
 optParser = OptionParser(option_list = optionList)
 args = parse_args(optParser)
@@ -67,6 +68,7 @@ pvarLo <<- 1
 pvarHi <<- pvarLo * 2
 tvar <<- 1
 evar <<- 1
+varianceLst <<- "1,2"
 
 # Substitute Provided Arguments for Default Values ====
 
@@ -74,6 +76,9 @@ evar <<- 1
 for (var in names(args)) {
   assign(var, args[var][[1]])
 }
+
+# process the variance list parameter
+varianceLst <<- as.numeric(unlist(strsplit(varianceLst, ",")))
 
 # Print Important Parameters for the Logs ====
 varLst <- c(
@@ -86,10 +91,11 @@ varLst <- c(
   "ntcat",
   "nreps",
   "svar",
-  "pvarLo",
-  "pvarHi",
+  #"pvarLo",
+  #"pvarHi",
   "tvar",
-  "evar"
+  "evar",
+  "varianceLst"
 )
 for (var in varLst) {
   comm.print(paste0(var, ": ", get(var)))
@@ -309,23 +315,25 @@ iterFn <- function (i, curPvar) {
  
 # # Parallelize! the modeling part... ====
 
-# This one does the low variance simulation.
 init()
+
+# Make a guiding list of variances and iteration numbers.
+guideMat <- data.frame(
+  i=1:(n.iter*length(varianceLst)),
+  variance=rep(varianceLst, times=n.iter)
+)
+
+comm.print(guideMat)
+
 time.proc <- system.time({
-  id <- get.jid(2 * n.iter)
+  id <- get.jid(nrow(guideMat))
   comm.print(id)
   estLst <- lapply(id, 
                      function (i) {
-                       # If i is even, do the low ones, if it is odd, the high
-                       if (i %% 2 == 0) {
-                         return(
-                           c(iterFn(i, curPvar=pvarLo), var=pvarLo)
-                         )
-                       } else {
-                         return(
-                           c(iterFn(i, curPvar=pvarHi), var=pvarHi)
-                         )
-                       }
+                       curVar <- guideMat$variance[i]
+                       return(
+                         c(iterFn(i, curPvar=curVar), var=curVar)
+                       )
                      }
   )
   estLst <- unlist(allgather(estLst), recursive=F)
