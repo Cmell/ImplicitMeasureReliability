@@ -20,8 +20,13 @@ for (p in pkgLst) {
 }
 
 # Working Directory ====
-# setwd('~chrismellinger/GoogleDrive/ImplicitMeasureReliability/')
-setwd('/home/chme2908/ImplicitMeasureReliability/')
+cmDir <- '~chrismellinger/GoogleDrive/ImplicitMeasureReliability/'
+corcDir <- '/home/chme2908/ImplicitMeasureReliability/'
+if (dir.exists(cmDir)) {
+  setwd(cmDir)
+} else if (dir.exists(corcDir)) {
+  setwd(corcDir)
+}
 
 # Get arguments ====
 library(optparse)
@@ -291,18 +296,19 @@ modelFn <- function (d, i=-1)
   rts <- tapply(d$rt, INDEX=list(d$snum, d$half, d$pcat, d$tcat), mean, na.rm=T)
   #d1 <- cast(d, snum ~ half + pcat + tcat, mean, value="rt")
   d1 <- data.frame(
-    snum = dimnames(rts)[1],
-    h1p1t1 = rts[,1,1,1],
-    h1p1t2 = rts[,1,1,2],
-    h1p2t1 = rts[,1,2,1],
-    h1p2t2 = rts[,1,2,2],
-
-    h2p1t1 = rts[,2,1,1],
-    h2p1t2 = rts[,2,1,2],
-    h2p2t1 = rts[,2,2,1],
-    h2p2t2 = rts[,2,2,2]
+    snum = dimnames(rts)[[1]]
   )
   d1 <- within(d1, {
+    h1p1t1 = rts[snum,1,1,1]
+    h1p1t2 = rts[snum,1,1,2]
+    h1p2t1 = rts[snum,1,2,1]
+    h1p2t2 = rts[snum,1,2,2]
+    
+    h2p1t1 = rts[snum,2,1,1]
+    h2p1t2 = rts[snum,2,1,2]
+    h2p2t1 = rts[snum,2,2,1]
+    h2p2t2 = rts[snum,2,2,2]
+    
     half1 <- (h1p1t1 - h1p1t2) - (h1p2t1 - h1p2t2)
     half2 <- (h2p1t1 - h2p1t2) - (h2p2t1 - h2p2t2)
   })
