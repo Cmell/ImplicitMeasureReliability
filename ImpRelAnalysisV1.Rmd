@@ -1,0 +1,70 @@
+---
+title: "ImpRelAnalysisV1"
+author: "Chris Mellinger"
+date: "10/11/2017"
+output: pdf_document
+---
+
+```{r}
+library(CMUtils)
+```
+
+
+```{r}
+load('Sim2Results/est_2017-10-26_18.49.52.RData')
+d1 <- est
+load('Sim2Results/est_2017-10-26_19.42.30.RData')
+d2 <- est
+load('Sim2Results/est_2017-10-29_09.24.06.RData')
+d3 <- est
+d <- merge(d1, d2, all=T)
+d <- merge(d, d3, all=T)
+rm(d1, d2, d3, est)
+```
+
+z transform the correlations.
+
+```{r}
+with(d, {
+  vioplotCM(r_sh[var==0],
+            r_sh[var==1],
+            r_sh[var==2],
+            r_sh[var==3],
+            r_sh[var==4],
+            main="Split-Half Reliability by Variance of Primes",
+            names=c('var=0\n', 'var=1\n', 'var=2\n', 'var=3\n', 'var=4\n'),
+            labelMeans = T)
+})
+with(d, {
+  vioplotCM(r_pf[var==0],
+            r_pf[var==1],
+            r_pf[var==2],
+            r_pf[var==3],
+            r_pf[var==4],
+            main="Reliability by Variance of Primes",
+            names=c('var=0\n', 'var=1\n', 'var=2\n', 'var=3\n', 'var=4\n'),
+            labelMeans = T)
+  
+})
+```
+
+```{r}
+d <- within(d, {
+  varLinear <-     -2 * (var==0) - 1 * (var==1) + 0 * (var==2) + 1 * (var==3) + 2 * (var==4)
+  varQuadratic <-  +2 * (var==0) - 1 * (var==1) - 2 * (var==2) - 1 * (var==3) + 2 * (var==4)
+  varCubic <-      -1 * (var==0) + 2 * (var==1) + 0 * (var==2) - 2 * (var==3) + 1 * (var==4)
+  varQuartic <-    +1 * (var==0) - 4 * (var==1) + 6 * (var==2) - 4 * (var==3) + 1 * (var==4)
+})
+```
+
+```{r}
+lmSummary(shMod <- lm(r_sh ~ varLinear + varQuadratic + varCubic + varQuartic, data=d))
+lmSummary(pfMod <- lm(r_pf ~ varLinear + varQuadratic + varCubic + varQuartic, data=d))
+```
+
+```{r}
+plot(shMod)
+plot(pfMod)
+```
+
+

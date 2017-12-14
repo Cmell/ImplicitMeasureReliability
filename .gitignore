@@ -1,0 +1,12 @@
+*.RData
+RCAllocation/*
+Sim*Results
+Study1
+TestingScratch
+*.out
+*.xlsx
+*log*
+*.txt
+*.pdf
+*.csv
+.Rhistory
