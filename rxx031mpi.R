@@ -251,16 +251,8 @@ modelFn <- function (d, i=-1)
   
   # Sample half of the trials for each participant by replication cell.
   d$half <- 1
-  allCells <- expand.grid(
-    unique(d$snum),
-    unique(d$pcat),
-    unique(d$tcat)
-  )
-  for (r in 1:nrow(allCells)) {
-    s <- allCells[r, 1]
-    p <- allCells[r, 2]
-    t <- allCells[r, 3]
-    curRows <- row.names(d[d$snum==s & d$pcat==p & d$tcat==t,])
+  for (s in unique(d$snum)) {
+    curRows <- row.names(d[d$snum==s,])
     sampledRows <- sample(curRows, size=length(curRows)/2, replace=F)
     d[sampledRows, 'half'] <- 2
   }

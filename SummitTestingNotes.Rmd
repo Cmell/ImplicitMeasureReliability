@@ -85,3 +85,5 @@ After getting an MPI script operating, I was able to run a 24-iteration (48 tota
 It takes about 65 minutes of core time to run the bigger (8 primes and targets) estimations. To run 10000 iterations of each (20000 estimations), that is $20000 \times 65 = 1300000$ minutes. There are 1440 minutes in a day. Thus, I would need $ 1300000 / 1440 \approx 903$ cores, which is 38 nodes to achieve this in 24 hours. For safety, I will use 40 nodes, which provides 960 cores.
 
 For one of the runs at 8 primes & targets 20 participants, with 960 cores it took 10.3 hours. For the other, it took 7.9 hours.
+
+Okay, as of now, I am getting 30 participants, 8 primes/targets done in 25 minutes. WTH? On a second try, it took 20 minutes. So, we have $10000 * 5 = 50000$ iterations to run in total. Thus, we need $50000 * 25 / 60 = 20833.33$ core hours. With 1000 cores, that implies about 20 hours of run time. I might recruit twice that, so 
