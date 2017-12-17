@@ -407,8 +407,6 @@ renameEstCols <- function (est) {
 }
 
 iterFn <- function (i, curPvar) {
-  print(paste('Beginning iteration', i, sep=" "))
-  
   initTm <- proc.time()[3]
   d <- genData(
     nsubj = nsubj,
@@ -434,6 +432,7 @@ iterFn <- function (i, curPvar) {
   # Save the timing info in a separate dataframe
   
   rm(d, initTm); gc();
+  print(paste('Iteration', i, 'finished.'))
   return(curEst)
 }
 
