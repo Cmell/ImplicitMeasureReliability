@@ -10,7 +10,8 @@ pkgLst <- c(
   'car',
   #'psych',
   'reshape',
-  'pbdMPI'
+  'pbdMPI',
+  'filelock'
   #'gtheory',
   #'parallel'
   #'pryr'
@@ -34,7 +35,17 @@ library(optparse)
 opts = 
   optionList = list(
     make_option(c("--nprim"), type="integer", help="number of primes"),
-    make_option(c("--n.iter"), type="integer", help="number of iterations"),
+    make_option(c("--n.iter"), type="integer", 
+                help="
+                Number of iterations (the iteration number to end on). Note that
+                this is multiplied by the number of variances in the variance
+                list for the final number of iterations.
+                "),
+    make_option(c("--iter.start"), type="integer", 
+                help="
+                Iteration number to begin at. This is with reference to the
+                total number of iterations n.iter * length(varianceLst).
+                "),
     make_option(c("--ncores"), type="integer", help="number of cores to use"),
     make_option(c("--ntarg"), type="integer", help="number of targets"),
     make_option(c("--nsubj"), type="integer", help="number of subjects"),
@@ -52,16 +63,23 @@ if (is.null(args$n.iter)) {
   )
 }
 n.iter <- args$n.iter
+
 # Default simulation parameters ====
 
 # For the parrallelization
-ncores <<- 2 * n.iter - 1 # This should be one less than is actually 
+#ncores <<- 2 * n.iter - 1 # This should be one less than is actually 
 # available. Reserve one core for the main process.
 
 # These are only needed if generating the data in files ahead of time.
-# At present, this method is not used.
-# scratchDirLo <- './scratch/LowVarData'
+
+resultDir <- './Results'
+dataDir <- './GeneratedData'
+timingFile <- './Timing.txt'; timingFileLock <- paste0(timingFile, '.lock')
 # scratchDirHi <- './scratch/HighVarData'
+if (!dir.exists(resultDir)) {dir.create(resultDir)}
+if (!dir.exists(dataDir)) {dir.create(dataDir)}
+if (!file.exists(timingFile)) {file.create(timingFile)}
+if (!file.exists(timingFileLock)) {file.create(timingFileLock)}
 
 nsubj <<- 15
 nprim <<- 2
@@ -76,6 +94,7 @@ svar <<- 1
 tvar <<- 1
 evar <<- 1
 varianceLst <<- "1"
+iter.start <<- 1
 
 # Substitute Provided Arguments for Default Values ====
 
@@ -89,7 +108,7 @@ varianceLst <<- as.numeric(unlist(strsplit(varianceLst, ",")))
 
 # Print Important Parameters for the Logs ====
 varLst <- c(
-  "ncores",
+  #"ncores",
   "n.iter",
   "nsubj",
   "nprim",
@@ -102,7 +121,8 @@ varLst <- c(
   #"pvarHi",
   "tvar",
   "evar",
-  "varianceLst"
+  "varianceLst",
+  "iter.start"
 )
 for (var in varLst) {
   comm.print(paste0(var, ": ", get(var)))
@@ -421,30 +441,47 @@ iterFn <- function (i, curPvar) {
     tvar = tvar,
     evar = evar
   )
-  genTm <- proc.time()[3] - initTm
+  # Save the data for posterity.
+  dataFlNm <- paste0(dataDir, '/DataIter', i, '.RData')
+  save(d, file=dataFlNm)
   #print(paste0('Iteration ', i, ' data gen time: ', tm))
   
   #initTm <- proc.time()[3]
   curEst <- modelFn(d, i=i)$est
+  # Save the result.
+  estFlNm <- paste0(resultDir, '/EstIter', i, '.csv')
+  write.table(t(c(curEst, curPvar)), 
+              file=estFlNm,
+              row.names = F,
+              col.names = T,
+              sep=','
+              )
   tm <- proc.time()[3] - initTm
   #comm.print(paste0('Iteration ', i, ' model time: ', tm))
   
-  # Save the timing info in a separate dataframe
+  # Save the timing info in a separate file
+  lck <- lock(timingFileLock, timeout=5000)
+  if (!is.null(lck)) {
+    write(paste0('Iteration ', i, ' took ', tm),
+          file=timingFile,
+          append=T)
+  }
+  unlock(lck)
   
   rm(d, initTm); gc();
-  print(paste('Iteration', i, 'finished.'))
-  return(curEst)
+  return(i)
 }
 
  
-# # Parallelize! the modeling part... ====
+# Parallelize! the modeling part... ====
 
 init()
 
 # Make a guiding list of variances and iteration numbers.
+iterVec <- iter.start:(n.iter*length(varianceLst))
 guideMat <- data.frame(
-  i=1:(n.iter*length(varianceLst)),
-  variance=rep(varianceLst, times=n.iter)
+  i=iterVec,
+  variance=rep(varianceLst, times=n.iter)[iterVec]
 )
 
 time.proc <- system.time({
@@ -452,29 +489,39 @@ time.proc <- system.time({
   estLst <- lapply(id, 
                      function (i) {
                        curVar <- guideMat$variance[i]
+                       iterNum <- guideMat$i[i]
                        return(
-                         c(iterFn(i, curPvar=curVar), var=curVar)
+                         c(iterFn(iterNum, curPvar=curVar), var=curVar)
                        )
                      }
   )
-  estLst <- unlist(allgather(estLst), recursive=F)
+  #estLst <- unlist(allgather(estLst), recursive=F)
 })
 comm.print(time.proc)
+file.remove(timingFileLock)
 
 
 # Make the est dataframe. ====
-#comm.print(estLst)
-nms <- names(estLst[[1]])
-
-bindRows <- function (r1, r2) {
-  #comm.print(r1)
-  return(rbind(r1, r2[nms]))
+# Load Data
+flLst <- list.files(path=resultDir, "csv", full.names = T)
+est <- read.csv(flLst[[1]], header=T)
+for (fl in flLst[2:length(flLst)]) {
+  curEst <- read.csv(fl, header=T)
+  est <- rbind(est, curEst)
 }
 
-suppressWarnings(
-  est <- data.frame(Reduce(bindRows, estLst))
-)
-
+# print(estLst)
+# 
+# nms <- names(estLst[[1]])
+# 
+# bindRows <- function (r1, r2) {
+#   #comm.print(r1)
+#   return(rbind(r1, r2[nms]))
+# }
+# 
+# suppressWarnings(
+#   est <- data.frame(Reduce(bindRows, estLst))
+# )
 
 est <- renameEstCols(est)
 
