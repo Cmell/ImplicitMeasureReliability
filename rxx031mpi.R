@@ -460,7 +460,7 @@ iterFn <- function (i, curPvar) {
   #comm.print(paste0('Iteration ', i, ' model time: ', tm))
   
   # Save the timing info in a separate file
-  lck <- lock(timingFileLock, timeout=5000)
+  lck <- lock(timingFileLock)
   if (!is.null(lck)) {
     write(paste0('Iteration ', i, ' took ', tm),
           file=timingFile,
