@@ -10,8 +10,8 @@ pkgLst <- c(
   'car',
   #'psych',
   'reshape',
-  'pbdMPI',
-  'filelock'
+  'pbdMPI'
+  #'filelock'
   #'gtheory',
   #'parallel'
   #'pryr'
@@ -75,11 +75,13 @@ n.iter <- args$n.iter
 resultDir <- './Results'
 dataDir <- './GeneratedData'
 timingFile <- './Timing.txt'; timingFileLock <- paste0(timingFile, '.lock')
+timingDir <- './TimingInfo'
 # scratchDirHi <- './scratch/HighVarData'
 if (!dir.exists(resultDir)) {dir.create(resultDir)}
 if (!dir.exists(dataDir)) {dir.create(dataDir)}
 if (!file.exists(timingFile)) {file.create(timingFile)}
 if (!file.exists(timingFileLock)) {file.create(timingFileLock)}
+if (!dir.exists(timingDir)) {dir.create(timingDir)}
 
 nsubj <<- 15
 nprim <<- 2
@@ -460,13 +462,12 @@ iterFn <- function (i, curPvar) {
   #comm.print(paste0('Iteration ', i, ' model time: ', tm))
   
   # Save the timing info in a separate file
-  lck <- lock(timingFileLock)
-  if (!is.null(lck)) {
-    write(paste0('Iteration ', i, ' took ', tm),
-          file=timingFile,
-          append=T)
-  }
-  unlock(lck)
+  tmDf <- data.frame(iteration=i, time=tm)
+  write.csv(tmDf,
+            file=paste0(timingDir, '/TmIter', i, '.csv'),
+            row.names=F
+            )
+  
   
   rm(d, initTm); gc();
   return(i)
@@ -498,8 +499,7 @@ time.proc <- system.time({
   #estLst <- unlist(allgather(estLst), recursive=F)
 })
 comm.print(time.proc)
-file.remove(timingFileLock)
-
+#file.remove(timingFileLock)
 
 # Make the est dataframe. ====
 # Load Data
@@ -509,19 +509,6 @@ for (fl in flLst[2:length(flLst)]) {
   curEst <- read.csv(fl, header=T)
   est <- rbind(est, curEst)
 }
-
-# print(estLst)
-# 
-# nms <- names(estLst[[1]])
-# 
-# bindRows <- function (r1, r2) {
-#   #comm.print(r1)
-#   return(rbind(r1, r2[nms]))
-# }
-# 
-# suppressWarnings(
-#   est <- data.frame(Reduce(bindRows, estLst))
-# )
 
 est <- renameEstCols(est)
 
@@ -538,70 +525,3 @@ save(est,
      )
 
 finalize()
-# Testing ====
-
-# d <- genData(
-#   nsubj = nsubj,
-#   nprim = nprim,
-#   npcat = npcat,
-#   ntarg = ntarg,
-#   ntcat = ntcat,
-#   nreps = nreps, # should be even number
-#   
-#   svar = svar,
-#   pvar = 1,
-#   tvar = tvar,
-#   evar = evar
-# )
-
-# Using clusters - deprecated ====
-
-# if (ncores > n.iter) {
-#   numCores <- n.iter
-# } else {
-#   numCores <- ncores
-# }
-
-# cl <- makeCluster(numCores, outfile=paste0(dateStr, '.out'))
-# clusterExport(cl, ls())
-# clusterEvalQ(cl, {
-#   #.libPaths(c(.libPaths(), '/projects/chme2908/R_libs'))
-#   library(car)
-#   library(reshape)
-#   library(psych)
-# })
-
-
-# est$var.snpctc <- 
-#   (est$ms.snpctc - est$ms.snpctn - est$ms.sntcpn + est$ms.snpntn) / 
-#   (nprim*ntarg*nreps)
-# est$var.snpctn <- (est$ms.snpctn - est$ms.snpntn) / (nprim*nreps)
-# est$var.sntcpn <- (est$ms.sntcpn - est$ms.snpntn) / (ntarg*nreps)
-# est$var.snpntn <- (est$ms.snpntn - est$ms.resid) / (nreps)
-# est$var.resid <- est$ms.resid
-
-# recode negative variances to zero (this will bias the estimates but is 
-# necessary to avoid negative reliabilities)
-
-# Old finishCals function syntax
-
-# est$var.snpctc[est$var.snpctc<0] <- 0
-# est$var.snpctn[est$var.snpctn<0] <- 0
-# est$var.sntcpn[est$var.sntcpn<0] <- 0
-# est$var.snpntn[est$var.snpntn<0] <- 0
-# 
-# est$rxxmse <- (est$ms.snpctc-est$ms.resid) / est$ms.snpctc
-# 
-# est$rxxvar <- 
-#   (est$var.snpctc + (est$var.snpctn / ntarg) + (est$var.sntcpn/ nprim) + 
-#      (est$var.snpntn / (nprim*ntarg))
-#   ) / 
-#   (est$var.snpctc + (est$var.snpctn / ntarg) + (est$var.sntcpn / nprim) + 
-#      (est$var.snpntn / (nprim*ntarg)) + est$var.resid / (nprim*ntarg*nreps)
-#   )
-# 
-# est$rxxvar.prand <- 
-#   est$var.snpctc / 
-#   (est$var.snpctc + (est$var.snpctn / ntarg) + (est$var.sntcpn / nprim) + 
-#      (est$var.snpntn / (nprim*ntarg)) + est$var.resid / (nprim*ntarg*nreps)
-#   )
