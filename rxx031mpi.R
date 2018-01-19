@@ -22,7 +22,7 @@ for (p in pkgLst) {
 
 # Working Directory ====
 cmDir <- '~chrismellinger/GoogleDrive/ImplicitMeasureReliability/'
-corcDir <- '/home/chme2908/ImplicitMeasureReliability/'
+corcDir <- '/scratch/summit/chme2908/ImplicitMeasureReliability/'
 if (dir.exists(cmDir)) {
   setwd(cmDir)
 } else if (dir.exists(corcDir)) {
