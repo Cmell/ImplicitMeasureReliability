@@ -8,6 +8,7 @@
 #library(CMUtils)
 pkgLst <- c(
   'car',
+  'optparse',
   #'psych',
   'reshape',
   'pbdMPI'
@@ -30,7 +31,6 @@ if (dir.exists(cmDir)) {
 }
 
 # Get arguments ====
-library(optparse)
 
 opts = 
   optionList = list(
@@ -72,16 +72,16 @@ n.iter <- args$n.iter
 
 # These are only needed if generating the data in files ahead of time.
 
-resultDir <- './Results'
+resultDir <- 'Results'
 dataDir <- './GeneratedData'
 timingFile <- './Timing.txt'; timingFileLock <- paste0(timingFile, '.lock')
 timingDir <- './TimingInfo'
 # scratchDirHi <- './scratch/HighVarData'
-if (!dir.exists(resultDir)) {dir.create(resultDir)}
-if (!dir.exists(dataDir)) {dir.create(dataDir)}
+#if (!dir.exists(resultDir)) {dir.create(resultDir)}
+#if (!dir.exists(dataDir)) {dir.create(dataDir)}
 if (!file.exists(timingFile)) {file.create(timingFile)}
 if (!file.exists(timingFileLock)) {file.create(timingFileLock)}
-if (!dir.exists(timingDir)) {dir.create(timingDir)}
+#if (!dir.exists(timingDir)) {dir.create(timingDir)}
 
 nsubj <<- 15
 nprim <<- 2
@@ -443,15 +443,23 @@ iterFn <- function (i, curPvar) {
     tvar = tvar,
     evar = evar
   )
+  # Find out the 1000s group:
+  folderGroup <- floor(i / 1000, 0)
+  curDataDir <- paste0(dataDir, folderGroup)
+  curResultDir <- paste0(resultDir, folderGroup)
+  curTimingDir <- paste0(timingDir, folderGroup)
+  if (!dir.exists(curDataDir)) {dir.create(curDataDir)}
+  if (!dir.exists(curResultDir)) {dir.create(curResultDir)}
+  if (!dir.exists(curTimingDir)) {dir.create(curTimingDir)}
   # Save the data for posterity.
-  dataFlNm <- paste0(dataDir, '/DataIter', i, '.RData')
+  dataFlNm <- paste0(curDataDir, '/DataIter', i, '.RData')
   save(d, file=dataFlNm)
   #print(paste0('Iteration ', i, ' data gen time: ', tm))
   
   #initTm <- proc.time()[3]
   curEst <- modelFn(d, i=i)$est
   # Save the result.
-  estFlNm <- paste0(resultDir, '/EstIter', i, '.csv')
+  estFlNm <- paste0(curResultDir, '/EstIter', i, '.csv')
   write.table(t(c(curEst, curPvar)), 
               file=estFlNm,
               row.names = F,
@@ -464,7 +472,7 @@ iterFn <- function (i, curPvar) {
   # Save the timing info in a separate file
   tmDf <- data.frame(iteration=i, time=tm)
   write.csv(tmDf,
-            file=paste0(timingDir, '/TmIter', i, '.csv'),
+            file=paste0(curTimingDir, '/TmIter', i, '.csv'),
             row.names=F
             )
   
@@ -503,7 +511,8 @@ comm.print(time.proc)
 
 # Make the est dataframe. ====
 # Load Data
-flLst <- list.files(path=resultDir, "csv", full.names = T)
+flLst <- list.files(path="./", full.names = T, recursive = T)
+flLst <- grep(paste0(resultDir, ".*csv"), flLst, value=T)
 est <- read.csv(flLst[[1]], header=T)
 for (fl in flLst[2:length(flLst)]) {
   curEst <- read.csv(fl, header=T)
