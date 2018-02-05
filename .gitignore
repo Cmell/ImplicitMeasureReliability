@@ -9,4 +9,5 @@ TestingScratch
 *.txt
 *.pdf
 *.csv
+*.lock
 .Rhistory

@@ -444,7 +444,7 @@ iterFn <- function (i, curPvar) {
     evar = evar
   )
   # Find out the 1000s group:
-  folderGroup <- floor(i / 1000, 0)
+  folderGroup <- floor(i / 1000)
   curDataDir <- paste0(dataDir, folderGroup)
   curResultDir <- paste0(resultDir, folderGroup)
   curTimingDir <- paste0(timingDir, folderGroup)
