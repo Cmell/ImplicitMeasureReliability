@@ -38,8 +38,6 @@ if (dir.exists(cmDir)) {
   setwd(corcDir)
 }
 
-if (!dir.exists(dateStr)) {dir.create(dateStr)}
-
 # Get arguments ====
 
 opts = 
@@ -61,7 +59,8 @@ opts =
     make_option(c("--nsubj"), type="integer", help="number of subjects"),
     #make_option(c("--pvarHi"), type="integer", help="variance of primes in 'high' condition"),
     #make_option(c("--pvarLo"), type="integer", help="variance of primes in 'low' condition")
-    make_option(c("--varianceLst"), type="character", help="comma separated values")
+    make_option(c("--varianceLst"), type="character", help="comma separated values"),
+    make_option(c("--dateStr"), type="character", help="string representing the date")
   )
 optParser = OptionParser(option_list = optionList)
 args = parse_args(optParser)
@@ -139,16 +138,15 @@ varLst <- c(
 for (var in varLst) {
   comm.print(paste0(var, ": ", get(var)))
 }
+comm.print(paste('Scratch directory:', dateStr))
 
-# Random Seed ====
+# Random Seed & Data Directory ====
 
 # Random number considerations. This will make the result reproducible 
 # and also ensure that each iteration is reasonably independent.
 # RNGkind("L'Ecuyer-CMRG")
 comm.set.seed(593065038)
-
-# seed. Deprecated. This is now accomplished when creating the workers.
-# set.seed(12345)   
+if (!dir.exists(dateStr)) {dir.create(dateStr)}
 
 # profileFl <- paste0(dateStr, '_profile.txt')
 
@@ -282,33 +280,7 @@ modelFn <- function (d, i=-1)
   }
   
   d1 <- data.frame(snum=unique(d$snum))
-  
-  # hCount <- 0
-  # for (h in unique(d$half)) {
-  #   hCount <- hCount + 1
-  #   pCount <- 0
-  #   for (p in unique(d$pcat)) {
-  #     pCount <- pCount + 1
-  #     tCount <- 0
-  #     for (t in unique(d$tcat)) {
-  #       tCount <- tCount + 1
-  #       for (s in unique(d$snum)) {
-  #         varNm <- paste0('h', hCount, 'p', pCount, 't', tCount)
-  #         mnVec <- subset(d, snum==s & pcat==p & tcat==t & half==h, rt)$rt
-  #         val <- mean(mnVec)
-  #         #print(val)
-  #         if (is.nan(val)) {
-  #           print(mnVec)
-  #           print(paste('half:', h))
-  #           print(paste('prime:', p))
-  #           print(paste('target:', t))
-  #           print(paste('subj:', s))
-  #         }
-  #         d1[d1$snum==s, varNm] <- val
-  #       }
-  #     }
-  #   }
-  # }
+
   rts <- tapply(d$rt, INDEX=list(d$snum, d$half, d$pcat, d$tcat), mean, na.rm=T)
   #d1 <- cast(d, snum ~ half + pcat + tcat, mean, value="rt")
   d1 <- data.frame(
@@ -349,87 +321,6 @@ modelFn <- function (d, i=-1)
   return(list(est=est, tming=tming))
 }
 
-finishCalcs <- function (est) {
-  est <- within(est, {
-    var.resid <- ms.resid
-    var.snpctc <- 
-        (ms.snpctc - ms.snpctn - ms.sntcpn + ms.snpntn) / 
-        (nprim*ntarg*nreps)
-      var.snpctn <- (ms.snpctn - ms.snpntn) / (nprim*nreps)
-      var.sntcpn <- (ms.sntcpn - ms.snpntn) / (ntarg*nreps)
-      var.snpntn <- (ms.snpntn - ms.resid) / (nreps)
-      
-      # recode negative variances to zero (this will bias the estimates but is 
-      # necessary to avoid negative reliabilities)
-      var.snpctc[var.snpctc<0] <- 0
-      var.snpctn[var.snpctn<0] <- 0
-      var.sntcpn[var.sntcpn<0] <- 0
-      var.snpntn[var.snpntn<0] <- 0
-      
-      rxxmse <- (ms.snpctc-ms.resid) / ms.snpctc
-      
-      rxxvar <- 
-        (var.snpctc + (var.snpctn / ntarg) + (var.sntcpn/ nprim) + 
-           (var.snpntn / (nprim*ntarg))
-        ) / 
-        (var.snpctc + (var.snpctn / ntarg) + (var.sntcpn / nprim) + 
-           (var.snpntn / (nprim*ntarg)) + var.resid / (nprim*ntarg*nreps)
-        )
-      
-      rxxvar.prand <- 
-        var.snpctc / 
-        (var.snpctc + (var.snpctn / ntarg) + (var.sntcpn / nprim) + 
-           (var.snpntn / (nprim*ntarg)) + var.resid / (nprim*ntarg*nreps)
-        )
-  })
-  
-  return(est)
-}
-
-renameEstCols <- function (est) {
-  colnames(est) <- c(
-    "ms.int",
-    "ms.sn",
-    "ms.pc",
-    "ms.tc",
-    "ms.pn",
-    "ms.tn",
-    
-    "ms.snpc",
-    "ms.sntc",
-    "ms.pctc",
-    "ms.snpn",
-    "ms.pcpn",
-    "ms.tcpn",
-    "ms.sntn",
-    "ms.pctn",
-    "ms.tctn",
-    "ms.pntn",
-    
-    "ms.snpctc",
-    "ms.snpcpn",
-    "ms.sntcpn",
-    "ms.pctcpn",
-    "ms.snpctn",
-    "ms.sntctn",
-    "ms.pctctn",
-    "ms.snpntn",
-    "ms.pcpntn",
-    "ms.tcpntn",
-    
-    "ms.snpctcpn",
-    "ms.snpctctn",
-    "ms.snpcpntn",
-    "ms.sntcpntn",
-    "ms.pctcpntn",
-    
-    "ms.snpctcpntn",
-    "ms.resid",
-    "r_sh","r_pf", "var"
-    )
-  return(est)
-}
-
 iterFn <- function (i, curPvar) {
   initTm <- proc.time()[3]
   d <- genData(
@@ -460,6 +351,9 @@ iterFn <- function (i, curPvar) {
   
   #initTm <- proc.time()[3]
   curEst <- modelFn(d, i=i)$est
+  curEst['nprim'] <- nprim
+  curEst['ntarg'] <- ntarg
+  curEst['nreps'] <- nreps
   # Save the result.
   estFlNm <- paste0(curResultDir, '/EstIter', i, '.csv')
   write.table(t(c(curEst, curPvar)), 
@@ -511,28 +405,7 @@ time.proc <- system.time({
 comm.print(time.proc)
 #file.remove(timingFileLock)
 
-# Make the est dataframe. ====
-# Load Data
-flLst <- list.files(path=dateStr, full.names = T, recursive = T)
-flLst <- grep(paste0(resultDir, ".*csv"), flLst, value=T)
-est <- read.csv(flLst[[1]], header=T)
-for (fl in flLst[2:length(flLst)]) {
-  curEst <- read.csv(fl, header=T)
-  est <- rbind(est, curEst)
-}
-
-est <- renameEstCols(est)
-
-# Perform calculations. ====
-
-est <- finishCalcs(est)
-
-# Save all the things. ====
-
-comm.print(paste('Run at', dateStr))
-
-save(est,
-     file=paste0('est_', dateStr,'.RData')
-     )
+endTime <- suppressWarnings(format(Sys.time(), format='%Y-%m-%d_%H.%M.%S'))
+comm.print(paste("Run finished", endTime))
 
 finalize()
