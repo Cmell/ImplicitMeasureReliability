@@ -21,6 +21,14 @@ for (p in pkgLst) {
   library(p, character.only = T, quietly = T)
 }
 
+# Date String ====
+
+suppressWarnings({
+  dateStr <- format(Sys.time(), format='%Y-%m-%d_%H.%M.%S')
+  comm.print(paste('Run start time:', format(Sys.time(), format='%Y-%m-%d_%H:%M:%S')))
+  startTime <<- proc.time()["elapsed"]
+})
+
 # Working Directory ====
 cmDir <- '~chrismellinger/GoogleDrive/ImplicitMeasureReliability/'
 corcDir <- '/scratch/summit/chme2908/ImplicitMeasureReliability/'
@@ -29,6 +37,8 @@ if (dir.exists(cmDir)) {
 } else if (dir.exists(corcDir)) {
   setwd(corcDir)
 }
+
+if (!dir.exists(dateStr)) {dir.create(dateStr)}
 
 # Get arguments ====
 
@@ -73,9 +83,9 @@ n.iter <- args$n.iter
 # These are only needed if generating the data in files ahead of time.
 
 resultDir <- 'Results'
-dataDir <- './GeneratedData'
-timingFile <- './Timing.txt'; timingFileLock <- paste0(timingFile, '.lock')
-timingDir <- './TimingInfo'
+dataDir <- 'GeneratedData'
+timingFile <- 'Timing.txt'; timingFileLock <- paste0(timingFile, '.lock')
+timingDir <- 'TimingInfo'
 # scratchDirHi <- './scratch/HighVarData'
 #if (!dir.exists(resultDir)) {dir.create(resultDir)}
 #if (!dir.exists(dataDir)) {dir.create(dataDir)}
@@ -139,14 +149,6 @@ comm.set.seed(593065038)
 
 # seed. Deprecated. This is now accomplished when creating the workers.
 # set.seed(12345)   
-
-# Date String ====
-
-suppressWarnings({
-  dateStr <- format(Sys.time(), format='%Y-%m-%d_%H.%M.%S')
-  comm.print(paste('Run start time:', format(Sys.time(), format='%Y-%m-%d_%H:%M:%S')))
-  startTime <<- proc.time()["elapsed"]
-})
 
 # profileFl <- paste0(dateStr, '_profile.txt')
 
@@ -445,9 +447,9 @@ iterFn <- function (i, curPvar) {
   )
   # Find out the 1000s group:
   folderGroup <- floor(i / 1000)
-  curDataDir <- paste0(dataDir, folderGroup)
-  curResultDir <- paste0(resultDir, folderGroup)
-  curTimingDir <- paste0(timingDir, folderGroup)
+  curDataDir <- paste0(dateStr, '/', dataDir, folderGroup)
+  curResultDir <- paste0(dateStr, '/', resultDir, folderGroup)
+  curTimingDir <- paste0(dateStr, '/', timingDir, folderGroup)
   if (!dir.exists(curDataDir)) {dir.create(curDataDir)}
   if (!dir.exists(curResultDir)) {dir.create(curResultDir)}
   if (!dir.exists(curTimingDir)) {dir.create(curTimingDir)}
@@ -511,7 +513,7 @@ comm.print(time.proc)
 
 # Make the est dataframe. ====
 # Load Data
-flLst <- list.files(path="./", full.names = T, recursive = T)
+flLst <- list.files(path=dateStr, full.names = T, recursive = T)
 flLst <- grep(paste0(resultDir, ".*csv"), flLst, value=T)
 est <- read.csv(flLst[[1]], header=T)
 for (fl in flLst[2:length(flLst)]) {

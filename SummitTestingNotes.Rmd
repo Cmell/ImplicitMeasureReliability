@@ -88,4 +88,6 @@ For one of the runs at 8 primes & targets 20 participants, with 960 cores it too
 
 Okay, as of now, I am getting 30 participants, 8 primes/targets done in 25 minutes. WTH? On a second try, it took 20 minutes. So, we have $10000 * 5 = 50000$ iterations to run in total. Thus, we need $50000 * 25 / 60 = 20833.33$ core hours. With 1000 cores, that implies about 20 hours of run time.
 
-On a run with 84 nodes, I ran over a 12 hour time limit. On a run with 90 nodes
+On a run with 84 nodes, I ran over a 12 hour time limit.
+
+A run finished on 2-9-18 in 12.72 hours. This utilized 90 nodes and the "saving data and results" style of aggregation. Next time try putting a time limit of 15 hours on it.
