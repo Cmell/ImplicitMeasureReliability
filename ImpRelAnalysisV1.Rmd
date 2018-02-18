@@ -10,7 +10,7 @@ library(CMUtils)
 ```
 
 
-```{r}
+```{r, eval=F, include=F}
 load('Sim2Results/est_2017-10-26_18.49.52.RData')
 d1 <- est
 load('Sim2Results/est_2017-10-26_19.42.30.RData')
@@ -21,6 +21,19 @@ d <- merge(d1, d2, all=T)
 d <- merge(d, d3, all=T)
 rm(d1, d2, d3, est)
 ```
+
+```{r, eval=F}
+load('Sim3Results/est_2018-02-08_06.53.02.RData')
+d <- est
+rm(est)
+```
+
+```{r, eval=F}
+load('est_2018-02-17_11.03.17.RData')
+d <- est
+rm(est)
+```
+
 
 z transform the correlations.
 
@@ -43,6 +56,26 @@ with(d, {
             r_pf[var==4],
             main="Reliability by Variance of Primes",
             names=c('var=0\n', 'var=1\n', 'var=2\n', 'var=3\n', 'var=4\n'),
+            labelMeans = T)
+  
+})
+```
+
+```{r}
+with(d, {
+  vioplotCM(r_sh[var==0],
+            r_sh[var==1],
+            r_sh[var==2],
+            main="Split-Half Reliability by Variance of Primes",
+            names=c('var=0\n', 'var=1\n', 'var=2\n'),
+            labelMeans = T)
+})
+with(d, {
+  vioplotCM(r_pf[var==0],
+            r_pf[var==1],
+            r_pf[var==2],
+            main="Reliability by Variance of Primes",
+            names=c('var=0\n', 'var=1\n', 'var=2\n'),
             labelMeans = T)
   
 })
