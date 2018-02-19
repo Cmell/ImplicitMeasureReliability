@@ -202,41 +202,41 @@ genData = function(
   #   1*(d$pcat*d$tcat*d$prej*d$pprot*d$tvaln) + 5*d$error
   
   # This formula was the first attempt at using real-world values.
-  # d$rt <- 6.4 + 0.07*(d$prej) + 0.00*(d$pcat) + 0.02*(d$tcat) + 0.02*(d$pprot) + 
-  #   0.02*(d$tvaln) + 0.00*(d$prej*d$pcat) + 0.00*(d$prej*d$tcat) + 
-  #   0.04*(d$pcat*d$tcat) + 0.04*(d$prej*d$pprot) + 0.02*(d$pprot*d$tcat) + 
-  #   0.00*(d$prej*d$tvaln) + 0.00*(d$pcat*d$tvaln) + 0.00*(d$pprot*d$tvaln) + 
-  #   0.08*(d$prej*d$pcat*d$tcat) + 0.00*(d$prej*d$pcat*d$tcat*d$tvaln) + 
-  #   0.06*(d$prej*d$pcat*d$tcat*d$pprot) +
-  #   0.05*(d$pcat*d$tcat*d$prej*d$pprot*d$tvaln) + 0.25*d$error
+  d$rt <- 6.4 + 0.07*(d$prej) + 0.00*(d$pcat) + 0.02*(d$tcat) + 0.02*(d$pprot) +
+    0.02*(d$tvaln) + 0.00*(d$prej*d$pcat) + 0.00*(d$prej*d$tcat) +
+    0.04*(d$pcat*d$tcat) + 0.04*(d$prej*d$pprot) + 0.02*(d$pprot*d$tcat) +
+    0.00*(d$prej*d$tvaln) + 0.00*(d$pcat*d$tvaln) + 0.00*(d$pprot*d$tvaln) +
+    0.08*(d$prej*d$pcat*d$tcat) + 0.00*(d$prej*d$pcat*d$tcat*d$tvaln) +
+    0.06*(d$prej*d$pcat*d$tcat*d$pprot) +
+    0.05*(d$pcat*d$tcat*d$prej*d$pprot*d$tvaln) + 0.25*d$error
   
   # These are the real world values based on the heirarchical ordering approach.
-  d <- within(d, {
-    rt <- 6.4 + 
-      .09449*(prej) + .09449*(pcat) + .09449*(tcat) + 
-      .09449*(pprot) + .09449*(tvaln) + 
-      # two ways
-      .08452*(prej*pcat) + 
-      .08452*(prej*tcat) + .08452*(prej*pprot) + .08452*(prej*tvaln) + 
-      .08452*(pcat*tcat) + .08452*(pcat*pprot) + .08452*(pcat*tvaln) + 
-      .08452*(tcat*pprot) + .08452*(tcat*tvaln) + 
-      .08452*(pprot*tvaln) + 
-      # three ways
-      0.07319*(prej*pcat*tcat) + 
-      0.07319*(prej*pcat*pprot) + 0.07319*(prej*pcat*tvaln) + 
-      0.07319*(prej*tcat*pprot) + 0.07319*(prej*tcat*tvaln) + 
-      0.07319*(prej*pprot*tvaln) + 0.07319*(pcat*tcat*pprot) + 
-      0.07319*(pcat*tcat*tvaln) + 0.07319*(pcat*pprot*tvaln) + 
-      0.07319*(tcat*pprot*tvaln) + 
-      # four ways
-      0.05976*(prej*pcat*tcat*pprot) + 
-      0.05976*(prej*pcat*tcat*tvaln) + 
-      0.05976*(prej*pcat*pprot*tvaln) + 
-      0.05976*(prej*tcat*pprot*tvaln) + 
-      0.05976*(pcat*tcat*pprot*tvaln) + 
-      # five way
-      .04226*(pcat*tcat*prej*pprot*tvaln) + 
-      0.10351*error
+   d <- within(d, {
+  #   rt <- 6.4 + 
+  #     .09449*(prej) + .09449*(pcat) + .09449*(tcat) + 
+  #     .09449*(pprot) + .09449*(tvaln) + 
+  #     # two ways
+  #     .08452*(prej*pcat) + 
+  #     .08452*(prej*tcat) + .08452*(prej*pprot) + .08452*(prej*tvaln) + 
+  #     .08452*(pcat*tcat) + .08452*(pcat*pprot) + .08452*(pcat*tvaln) + 
+  #     .08452*(tcat*pprot) + .08452*(tcat*tvaln) + 
+  #     .08452*(pprot*tvaln) + 
+  #     # three ways
+  #     0.07319*(prej*pcat*tcat) + 
+  #     0.07319*(prej*pcat*pprot) + 0.07319*(prej*pcat*tvaln) + 
+  #     0.07319*(prej*tcat*pprot) + 0.07319*(prej*tcat*tvaln) + 
+  #     0.07319*(prej*pprot*tvaln) + 0.07319*(pcat*tcat*pprot) + 
+  #     0.07319*(pcat*tcat*tvaln) + 0.07319*(pcat*pprot*tvaln) + 
+  #     0.07319*(tcat*pprot*tvaln) + 
+  #     # four ways
+  #     0.05976*(prej*pcat*tcat*pprot) + 
+  #     0.05976*(prej*pcat*tcat*tvaln) + 
+  #     0.05976*(prej*pcat*pprot*tvaln) + 
+  #     0.05976*(prej*tcat*pprot*tvaln) + 
+  #     0.05976*(pcat*tcat*pprot*tvaln) + 
+  #     # five way
+  #     .04226*(pcat*tcat*prej*pprot*tvaln) + 
+  #     0.10351*error
     
     # variance decomposition ====
     snum <- as.factor(snum)

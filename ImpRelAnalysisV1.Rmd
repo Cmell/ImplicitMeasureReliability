@@ -29,7 +29,7 @@ rm(est)
 ```
 
 ```{r, eval=F}
-load('est_2018-02-17_11.03.17.RData')
+load('est_2018-02-18_16.19.26.RData')
 d <- est
 rm(est)
 ```
