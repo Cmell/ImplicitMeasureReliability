@@ -139,7 +139,7 @@ varLst <- c(
 for (var in varLst) {
   comm.print(paste0(var, ": ", get(var)))
 }
-comm.print(paste('Scratch directory:', dateStr))
+comm.print(paste('dateStr:', dateStr))
 
 # Random Seed & Data Directory ====
 
@@ -147,7 +147,7 @@ comm.print(paste('Scratch directory:', dateStr))
 # and also ensure that each iteration is reasonably independent.
 # RNGkind("L'Ecuyer-CMRG")
 comm.set.seed(593065038)
-if (!dir.exists(dateStr)) {dir.create(dateStr)}
+#if (!dir.exists(dateStr)) {dir.create(dateStr)}
 
 # profileFl <- paste0(dateStr, '_profile.txt')
 
@@ -255,6 +255,87 @@ genData = function(
   return(d)
 }
 
+finishCalcs <- function (est) {
+  est <- within(est, {
+    var.resid <- ms.resid
+    var.snpctc <- 
+      (ms.snpctc - ms.snpctn - ms.sntcpn + ms.snpntn) / 
+      (nprim*ntarg*nreps)
+    var.snpctn <- (ms.snpctn - ms.snpntn) / (nprim*nreps)
+    var.sntcpn <- (ms.sntcpn - ms.snpntn) / (ntarg*nreps)
+    var.snpntn <- (ms.snpntn - ms.resid) / (nreps)
+    
+    # recode negative variances to zero (this will bias the estimates but is 
+    # necessary to avoid negative reliabilities)
+    var.snpctc[var.snpctc<0] <- 0
+    var.snpctn[var.snpctn<0] <- 0
+    var.sntcpn[var.sntcpn<0] <- 0
+    var.snpntn[var.snpntn<0] <- 0
+    
+    rxxmse <- (ms.snpctc-ms.resid) / ms.snpctc
+    
+    rxxvar <- 
+      (var.snpctc + (var.snpctn / ntarg) + (var.sntcpn/ nprim) + 
+         (var.snpntn / (nprim*ntarg))
+      ) / 
+      (var.snpctc + (var.snpctn / ntarg) + (var.sntcpn / nprim) + 
+         (var.snpntn / (nprim*ntarg)) + var.resid / (nprim*ntarg*nreps)
+      )
+    
+    rxxvar.prand <- 
+      var.snpctc / 
+      (var.snpctc + (var.snpctn / ntarg) + (var.sntcpn / nprim) + 
+         (var.snpntn / (nprim*ntarg)) + var.resid / (nprim*ntarg*nreps)
+      )
+  })
+  
+  return(est)
+}
+
+renameEstCols <- function (est) {
+  colnames(est) <- c(
+    "ms.int",
+    "ms.sn",
+    "ms.pc",
+    "ms.tc",
+    "ms.pn",
+    "ms.tn",
+    
+    "ms.snpc",
+    "ms.sntc",
+    "ms.pctc",
+    "ms.snpn",
+    "ms.pcpn",
+    "ms.tcpn",
+    "ms.sntn",
+    "ms.pctn",
+    "ms.tctn",
+    "ms.pntn",
+    
+    "ms.snpctc",
+    "ms.snpcpn",
+    "ms.sntcpn",
+    "ms.pctcpn",
+    "ms.snpctn",
+    "ms.sntctn",
+    "ms.pctctn",
+    "ms.snpntn",
+    "ms.pcpntn",
+    "ms.tcpntn",
+    
+    "ms.snpctcpn",
+    "ms.snpctctn",
+    "ms.snpcpntn",
+    "ms.sntcpntn",
+    "ms.pctcpntn",
+    
+    "ms.snpctcpntn",
+    "ms.resid",
+    "r_sh","r_pf", "nprim", "ntarg", "nreps", "var"
+  )
+  return(est)
+}
+
 modelFn <- function (d, i=-1) 
 {
   initTime <- proc.time()[3]
@@ -337,17 +418,6 @@ iterFn <- function (i, curPvar) {
     tvar = tvar,
     evar = evar
   )
-  # Find out the 1000s group:
-  folderGroup <- floor(i / 1000)
-  curDataDir <- paste0(dateStr, '/', dataDir, folderGroup)
-  curResultDir <- paste0(dateStr, '/', resultDir, folderGroup)
-  curTimingDir <- paste0(dateStr, '/', timingDir, folderGroup)
-  if (!dir.exists(curDataDir)) {dir.create(curDataDir)}
-  if (!dir.exists(curResultDir)) {dir.create(curResultDir)}
-  if (!dir.exists(curTimingDir)) {dir.create(curTimingDir)}
-  # Save the data for posterity.
-  dataFlNm <- paste0(curDataDir, '/DataIter', i, '.RData')
-  save(d, file=dataFlNm)
   #print(paste0('Iteration ', i, ' data gen time: ', tm))
   
   #initTm <- proc.time()[3]
@@ -355,27 +425,12 @@ iterFn <- function (i, curPvar) {
   curEst['nprim'] <- nprim
   curEst['ntarg'] <- ntarg
   curEst['nreps'] <- nreps
-  # Save the result.
-  estFlNm <- paste0(curResultDir, '/EstIter', i, '.csv')
-  write.table(t(c(curEst, curPvar)), 
-              file=estFlNm,
-              row.names = F,
-              col.names = T,
-              sep=','
-              )
-  tm <- proc.time()[3] - initTm
-  #comm.print(paste0('Iteration ', i, ' model time: ', tm))
   
   # Save the timing info in a separate file
-  tmDf <- data.frame(iteration=i, time=tm)
-  write.csv(tmDf,
-            file=paste0(curTimingDir, '/TmIter', i, '.csv'),
-            row.names=F
-            )
   
   
-  rm(d, initTm); gc();
-  return(i)
+  rm(d); gc();
+  return(curEst)
 }
 
  
@@ -401,12 +456,24 @@ time.proc <- system.time({
                        )
                      }
   )
-  #estLst <- unlist(allgather(estLst), recursive=F)
+  estLst <- unlist(allgather(estLst), recursive=F)
 })
 comm.print(time.proc)
 #file.remove(timingFileLock)
 
 endTime <- suppressWarnings(format(Sys.time(), format='%Y-%m-%d_%H.%M.%S'))
 comm.print(paste("Run finished", endTime))
+
+# Finalize The Dataframe ====
+
+estMat <- Reduce(rbind, estLst)
+row.names(estMat) <- 1:nrow(estMat)
+est <- as.data.frame(estMat)
+
+est <- renameEstCols(est)
+est <- finishCalcs(est)
+
+flName <- paste0('est_', dateStr, '_.RData')
+save(est, file = flName)
 
 finalize()
