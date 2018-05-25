@@ -37,6 +37,7 @@ if (dir.exists(cmDir)) {
 } else if (dir.exists(corcDir)) {
   setwd(corcDir)
 }
+comm.print(paste0('Working directory: ', getwd()))
 
 # Get arguments ====
 
@@ -134,12 +135,12 @@ varLst <- c(
   "tvar",
   "evar",
   "varianceLst",
-  "iter.start"
+  "iter.start",
+  "dateStr"
 )
 for (var in varLst) {
   comm.print(paste0(var, ": ", get(var)))
 }
-comm.print(paste('dateStr:', dateStr))
 
 # Random Seed & Data Directory ====
 
@@ -474,6 +475,7 @@ est <- renameEstCols(est)
 est <- finishCalcs(est)
 
 flName <- paste0('est_', dateStr, '_.RData')
+comm.print(paste0('File: ', flName))
 save(est, file = flName)
 
 finalize()
