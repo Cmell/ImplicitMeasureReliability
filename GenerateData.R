@@ -6,6 +6,9 @@ for (p in pkgLst) {
   library(p, character.only = T, quietly = T)
 }
 
+# Date String
+suppressWarnings({dateStr <- format(Sys.time(), format='%Y-%m-%d_%H.%M.%S')})
+
 # Working Directory ====
 cmDir <- '~chrismellinger/GoogleDrive/ImplicitMeasureReliability/'
 corcDir <- '/scratch/summit/chme2908/ImplicitMeasureReliability/'
@@ -261,3 +264,5 @@ system.time({
     save(d, file = guideMat$flNm[r])
   }
 })
+
+save(guideMat, file = paste0('GuideMat_', dateStr, '.RData'))
