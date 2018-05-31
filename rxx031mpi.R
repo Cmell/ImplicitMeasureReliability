@@ -1,5 +1,9 @@
 # rxx03 series manipulates the variance of the prime distribution (a=0,b=1,c=2,d=3)
 
+# Note that options can be passed, but if the guideFl option is supplied, any
+# options saved in that file override all options passed here. The only
+# exception is the group argument, which specifies which 
+
 # Libraries ====
 
 # add this to the search path for summit computing.
@@ -62,7 +66,13 @@ opts =
     #make_option(c("--pvarHi"), type="integer", help="variance of primes in 'high' condition"),
     #make_option(c("--pvarLo"), type="integer", help="variance of primes in 'low' condition")
     make_option(c("--varianceLst"), type="character", help="comma separated values"),
-    make_option(c("--dateStr"), type="character", help="string representing the date")
+    make_option(c("--dateStr"), type="character", help="string representing the date"),
+    make_option(c("--guideFl"), type="character", 
+                help="string of file name to use as guide matrix"),
+    make_option(c("--group"), type="integer",
+                help="the group number that should be processed"),
+    make_option(c("--estFlNm"), type="character", 
+                help="string of file name to store results")
   )
 optParser = OptionParser(option_list = optionList)
 args = parse_args(optParser)
@@ -109,6 +119,10 @@ evar <<- 1
 varianceLst <<- "1"
 iter.start <<- 1
 
+# If the guide file is not provided, the program will assume that it should 
+# generate data on its own
+guideFl <- NULL
+
 # Substitute Provided Arguments for Default Values ====
 
 # Overwrite the defaults when they are provided.
@@ -118,6 +132,12 @@ for (var in names(args)) {
 
 # process the variance list parameter
 varianceLst <<- as.numeric(unlist(strsplit(varianceLst, ",")))
+
+# Substitute all args for the ones in guideFl ====
+
+if (!is.null(guideFl)) {
+  load(guideFl)
+}
 
 # Print Important Parameters for the Logs ====
 varLst <- c(
@@ -136,10 +156,15 @@ varLst <- c(
   "evar",
   "varianceLst",
   "iter.start",
-  "dateStr"
+  "dateStr",
+  "guideFl",
+  "group",
+  "estFlNm"
 )
 for (var in varLst) {
-  comm.print(paste0(var, ": ", get(var)))
+  if (exists(var)) {
+    comm.print(paste0(var, ": ", get(var)))
+  }
 }
 
 # Random Seed & Data Directory ====
@@ -332,7 +357,7 @@ renameEstCols <- function (est) {
     
     "ms.snpctcpntn",
     "ms.resid",
-    "r_sh","r_pf", "nprim", "ntarg", "nreps", "var"
+    "r_sh","r_pf", "nprim", "ntarg", "nreps", "var", "runID"
   )
   return(est)
 }
@@ -404,21 +429,23 @@ modelFn <- function (d, i=-1)
   return(list(est=est, tming=tming))
 }
 
-iterFn <- function (i, curPvar) {
+iterFn <- function (i, curPvar, d=NULL) {
   initTm <- proc.time()[3]
-  d <- genData(
-    nsubj = nsubj,
-    nprim = nprim,
-    npcat = npcat,
-    ntarg = ntarg,
-    ntcat = ntcat,
-    nreps = nreps, # should be even number
-    
-    svar = svar,
-    pvar = curPvar,
-    tvar = tvar,
-    evar = evar
-  )
+  if (is.null(d)) {
+    d <- genData(
+      nsubj = nsubj,
+      nprim = nprim,
+      npcat = npcat,
+      ntarg = ntarg,
+      ntcat = ntcat,
+      nreps = nreps, # should be even number
+      
+      svar = svar,
+      pvar = curPvar,
+      tvar = tvar,
+      evar = evar
+    )
+  }
   #print(paste0('Iteration ', i, ' data gen time: ', tm))
   
   #initTm <- proc.time()[3]
@@ -440,11 +467,24 @@ iterFn <- function (i, curPvar) {
 init()
 
 # Make a guiding list of variances and iteration numbers.
-iterVec <- iter.start:(n.iter*length(varianceLst))
-guideMat <- data.frame(
-  i=iterVec,
-  variance=rep(varianceLst, times=n.iter)[iterVec]
-)
+
+if (is.null(guideFl)) {
+  iterVec <- iter.start:(n.iter*length(varianceLst))
+  guideMat <- data.frame(
+    i=iterVec,
+    variance=rep(varianceLst, times=n.iter)[iterVec]
+  )
+}
+
+# Subset to the groups if we need it.
+
+if (exists("group")) {
+  if (!("group" %in% colnames(guideMat))) {
+    comm.print("guideMat does not contain a group variable. Processing all rows")
+  } else {
+    guideMat <- guideMat[guideMat$group==group,]
+  }
+}
 
 time.proc <- system.time({
   id <- get.jid(nrow(guideMat))
@@ -452,9 +492,18 @@ time.proc <- system.time({
                      function (i) {
                        curVar <- guideMat$variance[i]
                        iterNum <- guideMat$i[i]
-                       return(
-                         c(iterFn(iterNum, curPvar=curVar), var=curVar)
-                       )
+                       if (is.null(guideFl)) {
+                         return(
+                           c(iterFn(iterNum, curPvar=curVar), 
+                             var=curVar, runID=i)
+                         )
+                       } else {
+                         load(guideMat$flNm[i])
+                         return(
+                           c(iterFn(iterNum, curPvar=curVar, d=d), 
+                             var=curVar, runID=i)
+                         )
+                       }
                      }
   )
   estLst <- unlist(allgather(estLst), recursive=F)
@@ -474,7 +523,16 @@ est <- as.data.frame(estMat)
 est <- renameEstCols(est)
 est <- finishCalcs(est)
 
-flName <- paste0('est_', dateStr, '_.RData')
+if (exists("estFlNm")) {
+  flName <- estFlNm
+} else {
+  flName <- paste0('est_', dateStr, '_.RData')
+}
+
+if (!dir.exists(dirname(flName))) {
+  dir.create(dirname(flName), recursive = T)
+}
+
 comm.print(paste0('File: ', flName))
 save(est, file = flName)
 

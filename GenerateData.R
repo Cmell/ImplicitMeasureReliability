@@ -30,28 +30,37 @@ opts =
                 this is multiplied by the number of variances in the variance
                 list for the final number of iterations.
                 "),
-    make_option(c("--iter.start"), type="integer", 
-                help="
-                Iteration number to begin at. This is with reference to the
-                total number of iterations n.iter * length(varianceLst).
-                "),
+    # make_option(c("--iter.start"), type="integer", 
+    #             help="
+    #             Iteration number to begin at. This is with reference to the
+    #             total number of iterations n.iter * length(varianceLst).
+    #             "),
     make_option(c("--ncores"), type="integer", help="number of cores to use"),
     make_option(c("--ntarg"), type="integer", help="number of targets"),
     make_option(c("--nsubj"), type="integer", help="number of subjects"),
     make_option(c("--nreps"), type="integer", help="number of subjects"),
     make_option(c("--varianceLst"), type="character", help="comma separated values"),
-    make_option(c("--dateStr"), type="character", help="string representing the date")
+    make_option(c("--dateStr"), type="character", help="string representing the date"),
+    make_option(c("--numGroups"), type="integer", 
+                help="number of running groups to include in the guide frame"),
+    make_option(c("--guideFlNm"), type="character", help="Filename to save guide file in")
     )
 optParser = OptionParser(option_list = optionList)
 args = parse_args(optParser)
 
-# Check the one required argument
+# Check the two required arguments
 if (is.null(args$n.iter)) {
   stop(
     paste("Must specify n.iter!")
   )
 }
+if (is.null(args$guideFlNm)) {
+  stop(
+    paste("Must specify guideFlNm!")
+  )
+}
 n.iter <- args$n.iter
+guideFlNm <- args$guideFlNm
 
 # Default simulation parameters ====
 
@@ -100,10 +109,13 @@ varLst <- c(
   "tvar",
   "evar",
   "varianceLst",
-  "iter.start"
+  "numGroups",
+  "guideFlNm"
 )
 for (var in varLst) {
-  print(paste0(var, ": ", get(var)))
+  if (exists(var)) {
+    print(paste0(var, ": ", get(var)))
+  }
 }
 
 # Random Seed & Data Directory ====
@@ -216,7 +228,7 @@ genData = function(
   return(d)
 }
 
-# Set Up Directories ====
+#  ====
 
 # guide data frame
 
@@ -237,6 +249,15 @@ guideMat$flNm <- sapply(1:nrow(guideMat), function (r) {
   flNm <- paste0(dataDir, '/var', curVar, '/set', curThou, '/data', curI, '.RData')
   return(flNm)
 })
+
+# Add the groups. At the moment, just divide the rows evenly since each row is 
+# run independently.
+if (exists("numGroups")) {
+  rep(1:numGroups, length.out=nrow(guideMat))
+  guideMat$group <- rep(1:numGroups, length.out=nrow(guideMat))
+} else {
+  guideMat$group <- 1
+}
 
 dirLst <- unique(dirname(guideMat$flNm))
 print(dirLst)
@@ -265,4 +286,6 @@ system.time({
   }
 })
 
-save(guideMat, file = paste0('GuideMat_', dateStr, '.RData'))
+varLst <- c(varLst, 'guideMat')
+varLst <- varLst[sapply(varLst, exists)]
+save(list = varLst,  file = guideFlNm)
