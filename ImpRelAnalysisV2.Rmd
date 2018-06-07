@@ -1,0 +1,125 @@
+---
+title: "ImpRelAnalysisV1"
+author: "Chris Mellinger"
+date: "10/11/2017"
+output: pdf_document
+---
+
+```{r}
+library(CMUtils)
+```
+
+This script loads the version that was run in May of 2018.
+
+
+The data loaded here utilize this data generation code (copied from the original):
+
+```{r, eval=F}
+d$rt <- 6.4 + 0.07*(d$prej) + 0.00*(d$pcat) + 0.02*(d$tcat) + 0.02*(d$pprot) +
+    0.02*(d$tvaln) + 0.00*(d$prej*d$pcat) + 0.00*(d$prej*d$tcat) +
+    0.04*(d$pcat*d$tcat) + 0.04*(d$prej*d$pprot) + 0.02*(d$pprot*d$tcat) +
+    0.00*(d$prej*d$tvaln) + 0.00*(d$pcat*d$tvaln) + 0.00*(d$pprot*d$tvaln) +
+    0.08*(d$prej*d$pcat*d$tcat) + 0.00*(d$prej*d$pcat*d$tcat*d$tvaln) +
+    0.06*(d$prej*d$pcat*d$tcat*d$pprot) +
+    0.05*(d$pcat*d$tcat*d$prej*d$pprot*d$tvaln) + 0.25*d$error
+```
+
+```{r}
+flLst <- list.files("./Sim4Results/", full.names = T)
+
+rm(d)
+for (fl in flLst) {
+  load(fl)
+  if (!exists("d")) {
+    d <- est
+  } else {
+    d <- rbind(d, est)
+  }
+}
+rm(est, fl, flLst)
+```
+
+# Raw Correlations
+
+```{r}
+with(d, {
+  vioplotCM(r_sh[var==0],
+            r_sh[var==1],
+            r_sh[var==2],
+            r_sh[var==3],
+            r_sh[var==4],
+            main="Split-Half Reliability by Variance of Primes",
+            names=c('var=0\n', 'var=1\n', 'var=2\n', 'var=3\n', 'var=4\n'),
+            labelMeans = T)
+})
+with(d, {
+  vioplotCM(r_pf[var==0],
+            r_pf[var==1],
+            r_pf[var==2],
+            r_pf[var==3],
+            r_pf[var==4],
+            main="Reliability by Variance of Primes",
+            names=c('var=0\n', 'var=1\n', 'var=2\n', 'var=3\n', 'var=4\n'),
+            labelMeans = T)
+  
+})
+```
+
+```{r}
+d <- within(d, {
+  varLinear <-     -2 * (var==0) - 1 * (var==1) + 0 * (var==2) + 1 * (var==3) + 2 * (var==4)
+  varQuadratic <-  +2 * (var==0) - 1 * (var==1) - 2 * (var==2) - 1 * (var==3) + 2 * (var==4)
+  varCubic <-      -1 * (var==0) + 2 * (var==1) + 0 * (var==2) - 2 * (var==3) + 1 * (var==4)
+  varQuartic <-    +1 * (var==0) - 4 * (var==1) + 6 * (var==2) - 4 * (var==3) + 1 * (var==4)
+})
+```
+
+```{r}
+lmSummary(shMod <- lm(r_sh ~ varLinear + varQuadratic + varCubic + varQuartic, data=d))
+lmSummary(pfMod <- lm(r_pf ~ varLinear + varQuadratic + varCubic + varQuartic, data=d))
+```
+
+# Z Transformed Correlations
+
+```{r}
+plot(shMod)
+plot(pfMod)
+```
+
+z transform the correlations.
+
+```{r}
+d <- within(d, {
+  rz_sh <- qnorm(r_sh)
+  rz_pf <- qnorm(r_pf)
+})
+```
+
+```{r}
+with(d, {
+  vioplotCM(rz_sh[var==0],
+            rz_sh[var==1],
+            rz_sh[var==2],
+            rz_sh[var==3],
+            rz_sh[var==4],
+            main="Split-Half Reliability (Z-Scored) by Variance of Primes",
+            names=c('var=0\n', 'var=1\n', 'var=2\n', 'var=3\n', 'var=4\n'),
+            labelMeans = T)
+})
+with(d, {
+  vioplotCM(rz_pf[var==0],
+            rz_pf[var==1],
+            rz_pf[var==2],
+            rz_pf[var==3],
+            rz_pf[var==4],
+            main="Reliability (Z-Scored) by Variance of Primes",
+            names=c('var=0\n', 'var=1\n', 'var=2\n', 'var=3\n', 'var=4\n'),
+            labelMeans = T)
+  
+})
+```
+
+```{r}
+lmSummary(shModZ <- lm(rz_sh ~ varLinear + varQuadratic + varCubic + varQuartic, data=d))
+lmSummary(pfModZ <- lm(rz_pf ~ varLinear + varQuadratic + varCubic + varQuartic, data=d))
+```

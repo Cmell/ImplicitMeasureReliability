@@ -72,7 +72,11 @@ opts =
     make_option(c("--group"), type="integer",
                 help="the group number that should be processed"),
     make_option(c("--estFlNm"), type="character", 
-                help="string of file name to store results")
+                help="string of file name to store results"),
+    make_option(c("--dataDir"), type="character", 
+                help="Directory where the generated data is."),
+    make_option(c("--resultDir"), type="character", 
+                help="Directory to store results")
   )
 optParser = OptionParser(option_list = optionList)
 args = parse_args(optParser)
@@ -159,7 +163,9 @@ varLst <- c(
   "dateStr",
   "guideFl",
   "group",
-  "estFlNm"
+  "estFlNm",
+  "dataDir",
+  "resultDir"
 )
 for (var in varLst) {
   if (exists(var)) {

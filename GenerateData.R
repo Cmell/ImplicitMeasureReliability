@@ -43,7 +43,10 @@ opts =
     make_option(c("--dateStr"), type="character", help="string representing the date"),
     make_option(c("--numGroups"), type="integer", 
                 help="number of running groups to include in the guide frame"),
-    make_option(c("--guideFlNm"), type="character", help="Filename to save guide file in")
+    make_option(c("--guideFlNm"), type="character", 
+                help="Filename to save guide file in"),
+    make_option(c("--dataDir"), type="character", 
+                help="Directory to save generated data in")
     )
 optParser = OptionParser(option_list = optionList)
 args = parse_args(optParser)
@@ -110,7 +113,8 @@ varLst <- c(
   "evar",
   "varianceLst",
   "numGroups",
-  "guideFlNm"
+  "guideFlNm",
+  "dataDir"
 )
 for (var in varLst) {
   if (exists(var)) {
