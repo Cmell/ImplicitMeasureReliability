@@ -74,9 +74,7 @@ opts =
     make_option(c("--estFlNm"), type="character", 
                 help="string of file name to store results"),
     make_option(c("--dataDir"), type="character", 
-                help="Directory where the generated data is."),
-    make_option(c("--resultDir"), type="character", 
-                help="Directory to store results")
+                help="Directory where the generated data is.")
   )
 optParser = OptionParser(option_list = optionList)
 args = parse_args(optParser)
@@ -97,7 +95,6 @@ n.iter <- args$n.iter
 
 # These are only needed if generating the data in files ahead of time.
 
-resultDir <- 'Results'
 dataDir <- 'GeneratedData'
 timingFile <- 'Timing.txt'; timingFileLock <- paste0(timingFile, '.lock')
 timingDir <- 'TimingInfo'
@@ -164,8 +161,7 @@ varLst <- c(
   "guideFl",
   "group",
   "estFlNm",
-  "dataDir",
-  "resultDir"
+  "dataDir"
 )
 for (var in varLst) {
   if (exists(var)) {

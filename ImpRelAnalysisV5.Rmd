@@ -9,7 +9,7 @@ output: pdf_document
 library(CMUtils)
 ```
 
-This script loads the version that was run in May of 2018. Run with seed `593065038`.
+This script loads the version that was run in June of 2018. It is marked V5. It is the same as V4, but uses a different seed: `49204`.
 
 The data loaded here utilize this data generation code (copied from the original):
 
@@ -24,7 +24,7 @@ d$rt <- 6.4 + 0.07*(d$prej) + 0.00*(d$pcat) + 0.02*(d$tcat) + 0.02*(d$pprot) +
 ```
 
 ```{r}
-flLst <- list.files("./Sim4Results/", full.names = T)
+flLst <- list.files("./Sim5Results/", full.names = T)
 
 rm(d)
 for (fl in flLst) {

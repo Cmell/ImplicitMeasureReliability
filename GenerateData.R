@@ -46,7 +46,9 @@ opts =
     make_option(c("--guideFlNm"), type="character", 
                 help="Filename to save guide file in"),
     make_option(c("--dataDir"), type="character", 
-                help="Directory to save generated data in")
+                help="Directory to save generated data in"),
+    make_option(c("--seed"), type="double", 
+                help="random seed to use")
     )
 optParser = OptionParser(option_list = optionList)
 args = parse_args(optParser)
@@ -72,6 +74,8 @@ guideFlNm <- args$guideFlNm
 dataDir <- 'GeneratedData'
 
 if (!dir.exists(dataDir)) {dir.create(dataDir)}
+
+seed <- 593065038
 
 nsubj <<- 15
 nprim <<- 2
@@ -114,7 +118,8 @@ varLst <- c(
   "varianceLst",
   "numGroups",
   "guideFlNm",
-  "dataDir"
+  "dataDir",
+  "seed"
 )
 for (var in varLst) {
   if (exists(var)) {
@@ -126,7 +131,7 @@ for (var in varLst) {
 
 # Random number considerations. This will make the result reproducible 
 # and also ensure that each iteration is reasonably independent.
-set.seed(593065038)
+set.seed(seed)
 
 # Function Defintion ====
 

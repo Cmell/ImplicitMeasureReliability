@@ -9,7 +9,6 @@ output: pdf_document
 library(CMUtils)
 ```
 
-
 ```{r, eval=F, include=F}
 load('Sim2Results/est_2017-10-26_18.49.52.RData')
 d1 <- est
